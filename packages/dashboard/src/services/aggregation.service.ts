@@ -627,24 +627,59 @@ export class AggregationService {
 
   /**
    * Get top N largest BUY trades from recent activity.
-   * Filtered to BUY side only, excludes sports/esports, sorted by sizeUsd descending.
+   * Filtered to BUY side only, >= $500, excludes sports/esports, sorted by sizeUsd descending.
    */
   async getTopTrades(limit: number = 10): Promise<RecentTradeActivity[]> {
     const allActivity = await this.getRecentActivity(100);
 
-    // Sports/esports exclusion list (same as getMarketsClosingSoon)
+    // Comprehensive sports/esports/betting exclusion patterns
     const exclusions = [
+      // Generic sports
       'sports', 'esports', 'nfl', 'nba', 'mlb', 'nhl', 'soccer', 'football',
       'basketball', 'baseball', 'hockey', 'tennis', 'golf', 'mma', 'ufc',
-      'boxing', 'cricket', 'f1', 'formula 1', 'nascar',
-      'call of duty', 'league of legends', 'counter-strike', 'dota', 'valorant',
-      'overwatch', 'fortnite', 'pubg', 'apex legends', 'rainbow six'
+      'boxing', 'cricket', 'f1', 'formula 1', 'nascar', 'rugby', 'volleyball',
+
+      // Major events
+      'super bowl', 'world series', 'world cup', 'champions league', 'stanley cup',
+      'playoffs', 'finals', 'championship', 'march madness', 'bowl game',
+
+      // Betting patterns (strong indicators of sports betting)
+      'o/u ', 'over/under', 'handicap', 'point spread', 'moneyline',
+      ' vs. ', ' vs ', // Common in sports matchups
+
+      // NFL teams
+      'patriots', 'texans', 'rams', 'chiefs', 'eagles', 'cowboys', 'packers',
+      'bills', 'dolphins', 'jets', 'ravens', 'steelers', 'bengals', 'browns',
+      'titans', 'colts', 'jaguars', 'broncos', 'raiders', 'chargers', 'seahawks',
+      '49ers', 'cardinals', 'falcons', 'panthers', 'saints', 'buccaneers',
+      'bears', 'lions', 'vikings', 'commanders', 'giants',
+
+      // NBA teams
+      'lakers', 'celtics', 'warriors', 'heat', 'bulls', 'knicks', 'nets',
+      'clippers', 'suns', 'mavericks', 'bucks', 'sixers', '76ers', 'raptors',
+      'nuggets', 'grizzlies', 'pelicans', 'spurs', 'rockets', 'timberwolves',
+      'thunder', 'blazers', 'jazz', 'kings', 'magic', 'pistons', 'pacers',
+      'hornets', 'hawks', 'cavaliers', 'wizards',
+
+      // Esports games
+      'call of duty', 'league of legends', 'counter-strike', 'cs2', 'csgo',
+      'dota', 'valorant', 'overwatch', 'fortnite', 'pubg', 'apex legends',
+      'rainbow six', 'rocket league', 'halo', 'starcraft',
+
+      // Common esports teams/orgs
+      'natus vincere', 'navi', 'faze', 'g2', 'team liquid', 'fnatic',
+      'cloud9', 'tsm', '100 thieves', 'sentinels', 'optic',
     ];
+
+    const MIN_TOP_TRADE_USD = 500;
 
     return allActivity
       .filter(a => {
         // Only BUY side trades
         if (a.side !== 'buy') return false;
+
+        // Minimum $500 threshold
+        if (a.sizeUsd < MIN_TOP_TRADE_USD) return false;
 
         // Exclude sports/esports based on question text
         const questionLower = (a.question || '').toLowerCase();
@@ -665,13 +700,43 @@ export class AggregationService {
   }): Promise<MarketSummary[]> {
     const { maxMinutes = 1440, limit = 20 } = options;
 
-    // Sports and esports categories to exclude
+    // Comprehensive sports/esports/betting exclusion patterns
     const exclusions = [
+      // Generic sports
       'sports', 'esports', 'nfl', 'nba', 'mlb', 'nhl', 'soccer', 'football',
       'basketball', 'baseball', 'hockey', 'tennis', 'golf', 'mma', 'ufc',
-      'boxing', 'cricket', 'f1', 'formula 1', 'nascar',
-      'call of duty', 'league of legends', 'counter-strike', 'dota', 'valorant',
-      'overwatch', 'fortnite', 'pubg', 'apex legends', 'rainbow six'
+      'boxing', 'cricket', 'f1', 'formula 1', 'nascar', 'rugby', 'volleyball',
+
+      // Major events
+      'super bowl', 'world series', 'world cup', 'champions league', 'stanley cup',
+      'playoffs', 'finals', 'championship', 'march madness', 'bowl game',
+
+      // Betting patterns (strong indicators of sports betting)
+      'o/u ', 'over/under', 'handicap', 'point spread', 'moneyline',
+      ' vs. ', ' vs ', // Common in sports matchups
+
+      // NFL teams
+      'patriots', 'texans', 'rams', 'chiefs', 'eagles', 'cowboys', 'packers',
+      'bills', 'dolphins', 'jets', 'ravens', 'steelers', 'bengals', 'browns',
+      'titans', 'colts', 'jaguars', 'broncos', 'raiders', 'chargers', 'seahawks',
+      '49ers', 'cardinals', 'falcons', 'panthers', 'saints', 'buccaneers',
+      'bears', 'lions', 'vikings', 'commanders', 'giants',
+
+      // NBA teams
+      'lakers', 'celtics', 'warriors', 'heat', 'bulls', 'knicks', 'nets',
+      'clippers', 'suns', 'mavericks', 'bucks', 'sixers', '76ers', 'raptors',
+      'nuggets', 'grizzlies', 'pelicans', 'spurs', 'rockets', 'timberwolves',
+      'thunder', 'blazers', 'jazz', 'kings', 'magic', 'pistons', 'pacers',
+      'hornets', 'hawks', 'cavaliers', 'wizards',
+
+      // Esports games
+      'call of duty', 'league of legends', 'counter-strike', 'cs2', 'csgo',
+      'dota', 'valorant', 'overwatch', 'fortnite', 'pubg', 'apex legends',
+      'rainbow six', 'rocket league', 'halo', 'starcraft',
+
+      // Common esports teams/orgs
+      'natus vincere', 'navi', 'faze', 'g2', 'team liquid', 'fnatic',
+      'cloud9', 'tsm', '100 thieves', 'sentinels', 'optic',
     ];
 
     const allMarkets = await this.getTrackedMarkets();
