@@ -1,0 +1,47 @@
+# =============================================================================
+# Scorer Service Dockerfile
+# =============================================================================
+# Computes anomaly, execution, and edge scores from feature vectors.
+# Implements the scoring formulas from CLAUDE.md Section 3.
+# =============================================================================
+
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+WORKDIR /app
+RUN apk add --no-cache python3 make g++
+
+# Dependencies stage
+FROM base AS dependencies
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/scorer/package.json ./packages/scorer/
+RUN pnpm install --frozen-lockfile
+
+# Builder stage
+FROM dependencies AS builder
+COPY tsconfig.base.json ./
+COPY packages/shared ./packages/shared
+COPY packages/scorer ./packages/scorer
+RUN pnpm --filter @polymarketbot/shared build && \
+    pnpm --filter @polymarketbot/scorer build
+
+# Production stage
+FROM node:20-alpine AS production
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/scorer/package.json ./packages/scorer/
+RUN pnpm install --frozen-lockfile --prod
+
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/scorer/dist ./packages/scorer/dist
+
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+USER nodejs
+
+ENV NODE_ENV=production
+ENV RUN_SCORER=true
+
+CMD ["node", "packages/scorer/dist/index.js"]

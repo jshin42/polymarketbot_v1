@@ -1,0 +1,50 @@
+# =============================================================================
+# Paper Engine Service Dockerfile
+# =============================================================================
+# Simulates trade execution and tracks paper positions:
+# - Order book walking for fill simulation
+# - Market impact modeling
+# - Position lifecycle management (open, update, close)
+# - P&L tracking
+# =============================================================================
+
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+WORKDIR /app
+RUN apk add --no-cache python3 make g++
+
+# Dependencies stage
+FROM base AS dependencies
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/paper-engine/package.json ./packages/paper-engine/
+RUN pnpm install --frozen-lockfile
+
+# Builder stage
+FROM dependencies AS builder
+COPY tsconfig.base.json ./
+COPY packages/shared ./packages/shared
+COPY packages/paper-engine ./packages/paper-engine
+RUN pnpm --filter @polymarketbot/shared build && \
+    pnpm --filter @polymarketbot/paper-engine build
+
+# Production stage
+FROM node:20-alpine AS production
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/paper-engine/package.json ./packages/paper-engine/
+RUN pnpm install --frozen-lockfile --prod
+
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/paper-engine/dist ./packages/paper-engine/dist
+
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+USER nodejs
+
+ENV NODE_ENV=production
+ENV RUN_PAPER_ENGINE=true
+
+CMD ["node", "packages/paper-engine/dist/index.js"]

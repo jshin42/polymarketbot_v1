@@ -1,0 +1,53 @@
+# =============================================================================
+# Docker Ignore File
+# =============================================================================
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+**/dist/
+**/build/
+*.tsbuildinfo
+
+# Test files
+**/__tests__/
+**/*.test.ts
+**/*.spec.ts
+coverage/
+
+# Development files
+.env
+.env.*
+!.env.example
+.git/
+.gitignore
+.vscode/
+.idea/
+*.md
+!README.md
+
+# Docker files (don't need to copy these into the image)
+docker-compose*.yml
+Dockerfile*
+
+# Logs and temp files
+*.log
+logs/
+tmp/
+.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Mock and fixture files (not needed in production)
+**/__mocks__/
+**/__fixtures__/

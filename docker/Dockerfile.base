@@ -1,0 +1,89 @@
+# =============================================================================
+# Base Dockerfile for Polymarket Anomaly Bot
+# =============================================================================
+# This is a multi-stage base image that other service Dockerfiles extend.
+# It handles pnpm installation, dependency caching, and TypeScript compilation.
+# =============================================================================
+
+FROM node:20-alpine AS base
+
+# Install pnpm globally
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies needed for some npm packages
+RUN apk add --no-cache python3 make g++
+
+# =============================================================================
+# Dependencies Stage - Install all workspace dependencies
+# =============================================================================
+FROM base AS dependencies
+
+# Copy package files for dependency installation
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/collector/package.json ./packages/collector/
+COPY packages/feature-engine/package.json ./packages/feature-engine/
+COPY packages/scorer/package.json ./packages/scorer/
+COPY packages/strategy/package.json ./packages/strategy/
+COPY packages/paper-engine/package.json ./packages/paper-engine/
+COPY packages/dashboard/package.json ./packages/dashboard/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# =============================================================================
+# Builder Stage - Compile TypeScript
+# =============================================================================
+FROM dependencies AS builder
+
+# Copy source code
+COPY tsconfig.base.json ./
+COPY packages/ ./packages/
+
+# Build all packages
+RUN pnpm build
+
+# =============================================================================
+# Production Base - Minimal runtime image
+# =============================================================================
+FROM node:20-alpine AS production-base
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/collector/package.json ./packages/collector/
+COPY packages/feature-engine/package.json ./packages/feature-engine/
+COPY packages/scorer/package.json ./packages/scorer/
+COPY packages/strategy/package.json ./packages/strategy/
+COPY packages/paper-engine/package.json ./packages/paper-engine/
+COPY packages/dashboard/package.json ./packages/dashboard/
+
+# Install production dependencies only
+RUN pnpm install --frozen-lockfile --prod
+
+# Copy built files from builder
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/collector/dist ./packages/collector/dist
+COPY --from=builder /app/packages/feature-engine/dist ./packages/feature-engine/dist
+COPY --from=builder /app/packages/scorer/dist ./packages/scorer/dist
+COPY --from=builder /app/packages/strategy/dist ./packages/strategy/dist
+COPY --from=builder /app/packages/paper-engine/dist ./packages/paper-engine/dist
+COPY --from=builder /app/packages/dashboard/dist ./packages/dashboard/dist
+
+# Set non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+USER nodejs
+
+# Default environment variables
+ENV NODE_ENV=production
+ENV PAPER_MODE=true
+ENV ENABLE_LIVE_TRADING=false

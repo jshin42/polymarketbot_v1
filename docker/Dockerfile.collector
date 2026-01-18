@@ -1,0 +1,47 @@
+# =============================================================================
+# Collector Service Dockerfile
+# =============================================================================
+# Pulls market metadata, order book snapshots, and trade data from Polymarket.
+# Publishes normalized data to Redis/BullMQ for downstream processing.
+# =============================================================================
+
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+WORKDIR /app
+RUN apk add --no-cache python3 make g++
+
+# Dependencies stage
+FROM base AS dependencies
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/collector/package.json ./packages/collector/
+RUN pnpm install --frozen-lockfile
+
+# Builder stage
+FROM dependencies AS builder
+COPY tsconfig.base.json ./
+COPY packages/shared ./packages/shared
+COPY packages/collector ./packages/collector
+RUN pnpm --filter @polymarketbot/shared build && \
+    pnpm --filter @polymarketbot/collector build
+
+# Production stage
+FROM node:20-alpine AS production
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/collector/package.json ./packages/collector/
+RUN pnpm install --frozen-lockfile --prod
+
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/collector/dist ./packages/collector/dist
+
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+USER nodejs
+
+ENV NODE_ENV=production
+ENV RUN_COLLECTOR=true
+
+CMD ["node", "packages/collector/dist/index.js"]

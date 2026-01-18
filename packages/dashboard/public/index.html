@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polymarket Anomaly Bot</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #8b949e;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3fb950;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .stat-value.positive {
+      color: #3fb950;
+    }
+
+    .stat-value.negative {
+      color: #f85149;
+    }
+
+    section {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .section-count {
+      font-size: 12px;
+      color: #8b949e;
+      background: #21262d;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: #0d1117;
+      border-bottom: 1px solid #30363d;
+    }
+
+    td {
+      padding: 12px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    tr:hover {
+      background: #1c2128;
+    }
+
+    .token-id {
+      font-family: monospace;
+      font-size: 13px;
+      color: #58a6ff;
+      cursor: help;
+    }
+
+    .score {
+      font-family: monospace;
+      font-weight: 500;
+    }
+
+    .score.high {
+      color: #3fb950;
+    }
+
+    .score.medium {
+      color: #d29922;
+    }
+
+    .score.low {
+      color: #8b949e;
+    }
+
+    .signal-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .signal-badge.extreme {
+      background: rgba(248, 81, 73, 0.2);
+      color: #f85149;
+    }
+
+    .signal-badge.strong {
+      background: rgba(63, 185, 80, 0.2);
+      color: #3fb950;
+    }
+
+    .signal-badge.moderate {
+      background: rgba(210, 153, 34, 0.2);
+      color: #d29922;
+    }
+
+    .signal-badge.weak {
+      background: rgba(139, 148, 158, 0.2);
+      color: #8b949e;
+    }
+
+    .side-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .side-badge.yes {
+      background: rgba(63, 185, 80, 0.2);
+      color: #3fb950;
+    }
+
+    .side-badge.no {
+      background: rgba(248, 81, 73, 0.2);
+      color: #f85149;
+    }
+
+    .pnl {
+      font-family: monospace;
+      font-weight: 500;
+    }
+
+    .pnl.positive {
+      color: #3fb950;
+    }
+
+    .pnl.negative {
+      color: #f85149;
+    }
+
+    .empty-state {
+      padding: 48px;
+      text-align: center;
+      color: #8b949e;
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      color: #8b949e;
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #30363d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .holdings-summary {
+      display: flex;
+      gap: 24px;
+      padding: 12px 16px;
+      background: #0d1117;
+      font-size: 14px;
+      color: #8b949e;
+    }
+
+    .holdings-summary span {
+      color: #f0f6fc;
+      font-weight: 500;
+    }
+
+    .question-cell {
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .days-urgent {
+      color: #f85149;
+      font-weight: 600;
+    }
+
+    .days-soon {
+      color: #d29922;
+    }
+
+    .days-normal {
+      color: #8b949e;
+    }
+
+    .link-icon {
+      color: #58a6ff;
+      text-decoration: none;
+      font-size: 16px;
+      padding: 4px 8px;
+      display: inline-block;
+    }
+
+    .link-icon:hover {
+      background: rgba(88, 166, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    .outcome-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      background: rgba(139, 148, 158, 0.2);
+      color: #8b949e;
+    }
+
+    /* Wallet age color coding */
+    .wallet-new {
+      color: #f85149;
+      font-weight: 600;
+    }
+
+    .wallet-recent {
+      color: #d29922;
+    }
+
+    .wallet-established {
+      color: #8b949e;
+    }
+
+    .wallet-unknown {
+      color: #6e7681;
+      font-style: italic;
+    }
+
+    /* Trigger trade styling */
+    .trigger-amount {
+      font-family: monospace;
+      font-weight: 500;
+      color: #f0f6fc;
+    }
+
+    .trigger-amount.significant {
+      color: #3fb950;
+    }
+
+    .trigger-amount.major {
+      color: #58a6ff;
+    }
+
+    @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 8px 12px;
+      }
+    }
+
+    /* Activity Section Styles - Polymarket-like */
+    .activity-filters {
+      display: flex;
+      gap: 8px;
+    }
+
+    .activity-filters select {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .activity-list {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .activity-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 12px 16px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .activity-item:hover {
+      background: #1c2128;
+    }
+
+    .activity-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      overflow: hidden;
+      margin-right: 12px;
+      flex-shrink: 0;
+      background: #21262d;
+    }
+
+    .activity-avatar img {
+      width: 100%;
+      height: 100%;
+    }
+
+    .activity-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .activity-main {
+      line-height: 1.5;
+      color: #c9d1d9;
+    }
+
+    .activity-user {
+      color: #f0f6fc;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .activity-user:hover {
+      text-decoration: underline;
+      color: #58a6ff;
+    }
+
+    .action-buy { color: #3fb950; font-weight: 500; }
+    .action-sell { color: #f85149; font-weight: 500; }
+
+    .activity-qty { color: #f0f6fc; font-weight: 600; }
+    .activity-outcome { color: #f0f6fc; font-weight: 500; }
+    .activity-for, .activity-at { color: #8b949e; }
+    .activity-market { color: #8b949e; }
+    .activity-total { color: #8b949e; }
+
+    .activity-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 4px;
+      font-size: 12px;
+      color: #6e7681;
+    }
+
+    .joined-new {
+      color: #d29922 !important;
+      font-weight: 500;
+    }
+
+    .joined-old {
+      color: #6e7681;
+    }
+
+    .activity-tx {
+      color: #6e7681;
+      text-decoration: none;
+      opacity: 0.7;
+    }
+
+    .activity-tx:hover {
+      opacity: 1;
+      color: #58a6ff;
+    }
+
+    .no-activity {
+      padding: 48px;
+      text-align: center;
+      color: #8b949e;
+    }
+
+    /* Top 3 Bets Section - Gold/Silver/Bronze */
+    .top-bets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .top-bet-card {
+      background: #161b22;
+      border: 2px solid #30363d;
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .top-bet-card.gold {
+      border-color: #ffd700;
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, #161b22 100%);
+    }
+
+    .top-bet-card.silver {
+      border-color: #c0c0c0;
+      background: linear-gradient(135deg, rgba(192, 192, 192, 0.1) 0%, #161b22 100%);
+    }
+
+    .top-bet-card.bronze {
+      border-color: #cd7f32;
+      background: linear-gradient(135deg, rgba(205, 127, 50, 0.1) 0%, #161b22 100%);
+    }
+
+    .top-bet-rank {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      font-size: 24px;
+      font-weight: 700;
+      opacity: 0.8;
+    }
+
+    .top-bet-card.gold .top-bet-rank { color: #ffd700; }
+    .top-bet-card.silver .top-bet-rank { color: #c0c0c0; }
+    .top-bet-card.bronze .top-bet-rank { color: #cd7f32; }
+
+    .top-bet-amount {
+      font-size: 28px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 8px;
+    }
+
+    .top-bet-action {
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .top-bet-action .action-buy { color: #3fb950; font-weight: 600; }
+    .top-bet-action .action-sell { color: #f85149; font-weight: 600; }
+
+    .top-bet-market {
+      font-size: 13px;
+      color: #8b949e;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    .top-bet-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 12px;
+      color: #6e7681;
+    }
+
+    .top-bet-meta a {
+      color: #58a6ff;
+      text-decoration: none;
+    }
+
+    .top-bet-meta a:hover {
+      text-decoration: underline;
+    }
+
+    .top-bet-wallet {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .top-bet-wallet img {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+    }
+
+    /* Markets Closing Soon Section */
+    .closing-market-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .closing-market-row:hover {
+      background: #1c2128;
+    }
+
+    .closing-market-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .closing-market-question {
+      font-size: 14px;
+      color: #c9d1d9;
+      margin-bottom: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .closing-market-category {
+      font-size: 11px;
+      color: #6e7681;
+      text-transform: uppercase;
+    }
+
+    .closing-market-time {
+      font-size: 14px;
+      font-weight: 600;
+      min-width: 80px;
+      text-align: right;
+    }
+
+    .closing-market-link {
+      margin-left: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Polymarket Anomaly Bot</h1>
+      <div class="status">
+        <div class="status-dot"></div>
+        <span id="lastUpdate">Loading...</span>
+      </div>
+    </header>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Bankroll</div>
+        <div class="stat-value" id="bankroll">$0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Exposure</div>
+        <div class="stat-value" id="exposure">$0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Daily P&L</div>
+        <div class="stat-value" id="dailyPnl">$0.00</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open Positions</div>
+        <div class="stat-value" id="openPositions">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Win Rate</div>
+        <div class="stat-value" id="winRate">0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Drawdown</div>
+        <div class="stat-value" id="drawdown">0%</div>
+      </div>
+    </div>
+
+    <section>
+      <div class="section-header">
+        <div class="section-title">Top 10 Largest Buys (Last Hour)</div>
+        <div class="section-count" id="topBetsCount">0 buys</div>
+      </div>
+      <div class="top-bets-grid" id="topBetsGrid">
+        <div class="loading">
+          <div class="spinner"></div>
+          Loading top bets...
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <div class="section-title">Markets Closing Soon (Political & Economic)</div>
+        <div class="section-count" id="closingMarketCount">0 markets</div>
+      </div>
+      <div id="closingMarketsContainer">
+        <div class="loading">
+          <div class="spinner"></div>
+          Loading markets...
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <div class="section-title">Top Ranked Opportunities</div>
+        <div class="section-count" id="opportunitiesCount">0 opportunities</div>
+      </div>
+      <div id="opportunitiesTable">
+        <div class="loading">
+          <div class="spinner"></div>
+          Loading opportunities...
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <div class="section-title">Paper Trading Holdings</div>
+        <div class="section-count" id="holdingsCount">0 positions</div>
+      </div>
+      <div class="holdings-summary">
+        <div>Total Value: <span id="totalValue">$0.00</span></div>
+        <div>Unrealized P&L: <span id="unrealizedPnl">$0.00</span></div>
+      </div>
+      <div id="holdingsTable">
+        <div class="loading">
+          <div class="spinner"></div>
+          Loading positions...
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <div class="section-title">Recent Activity</div>
+        <div class="activity-filters">
+          <select id="activity-filter" onchange="fetchActivity()">
+            <option value="0">All</option>
+            <option value="100">Min $100</option>
+            <option value="1000" selected>Min $1,000</option>
+          </select>
+          <div class="section-count" id="activityCount">0 trades</div>
+        </div>
+      </div>
+      <div class="activity-list" id="activityList">
+        <div class="loading">
+          <div class="spinner"></div>
+          Loading activity...
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const API_BASE = '';
+    const REFRESH_INTERVAL = 5000;
+
+    function formatCurrency(value) {
+      const num = parseFloat(value) || 0;
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(num);
+    }
+
+    function formatPrice(value) {
+      const num = parseFloat(value) || 0;
+      return num.toFixed(4);
+    }
+
+    function formatScore(value) {
+      const num = parseFloat(value) || 0;
+      return num.toFixed(3);
+    }
+
+    function formatPercent(value) {
+      const num = parseFloat(value) || 0;
+      return (num * 100).toFixed(1) + '%';
+    }
+
+    function truncateId(id) {
+      if (!id || id.length <= 12) return id;
+      return id.slice(0, 6) + '...' + id.slice(-4);
+    }
+
+    function getScoreClass(score) {
+      if (score >= 0.7) return 'high';
+      if (score >= 0.4) return 'medium';
+      return 'low';
+    }
+
+    function getSignalBadge(strength) {
+      const normalized = (strength || 'weak').toLowerCase();
+      return `<span class="signal-badge ${normalized}">${normalized}</span>`;
+    }
+
+    function getSideBadge(side) {
+      const normalized = (side || 'YES').toUpperCase();
+      return `<span class="side-badge ${normalized.toLowerCase()}">${normalized}</span>`;
+    }
+
+    function getPnlClass(value) {
+      const num = parseFloat(value) || 0;
+      if (num > 0) return 'positive';
+      if (num < 0) return 'negative';
+      return '';
+    }
+
+    async function fetchStats() {
+      try {
+        const response = await fetch(`${API_BASE}/api/stats`);
+        const data = await response.json();
+
+        document.getElementById('bankroll').textContent = formatCurrency(data.bankroll);
+        document.getElementById('exposure').textContent = formatCurrency(data.totalExposure);
+
+        const dailyPnl = data.dailyPnl || 0;
+        const dailyPnlEl = document.getElementById('dailyPnl');
+        dailyPnlEl.textContent = (dailyPnl >= 0 ? '+' : '') + formatCurrency(dailyPnl);
+        dailyPnlEl.className = 'stat-value ' + getPnlClass(dailyPnl);
+
+        document.getElementById('openPositions').textContent = data.openPositionsCount || 0;
+        document.getElementById('winRate').textContent = formatPercent(data.winRate || 0);
+
+        const drawdown = data.drawdownPct || 0;
+        const drawdownEl = document.getElementById('drawdown');
+        drawdownEl.textContent = formatPercent(drawdown);
+        drawdownEl.className = 'stat-value' + (drawdown > 0.05 ? ' negative' : '');
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      }
+    }
+
+    function truncateQuestion(q, maxLen) {
+      if (!q || q.length <= maxLen) return escapeHtml(q);
+      return escapeHtml(q.slice(0, maxLen)) + '...';
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatDays(days) {
+      if (days === null || days === undefined) return '-';
+      if (days < 0) return 'Closed';
+      if (days < 1) return `${Math.round(days * 24)}h`;
+      return `${days.toFixed(1)}d`;
+    }
+
+    function getDaysClass(days) {
+      if (days === null || days === undefined) return '';
+      if (days < 1) return 'days-urgent';
+      if (days < 3) return 'days-soon';
+      return 'days-normal';
+    }
+
+    function formatTriggerAmount(amount) {
+      if (amount === null || amount === undefined) return '-';
+      return '$' + Math.round(amount).toLocaleString('en-US');
+    }
+
+    function getTriggerAmountClass(amount) {
+      if (amount === null || amount === undefined) return '';
+      if (amount >= 25000) return 'major';
+      if (amount >= 10000) return 'significant';
+      return '';
+    }
+
+    function getWalletAgeClass(days) {
+      if (days === null || days === undefined) return 'wallet-unknown';
+      if (days < 7) return 'wallet-new';
+      if (days < 30) return 'wallet-recent';
+      return 'wallet-established';
+    }
+
+    async function fetchOpportunities() {
+      try {
+        const response = await fetch(`${API_BASE}/api/opportunities?limit=15`);
+        const data = await response.json();
+        const opportunities = data.opportunities || [];
+
+        document.getElementById('opportunitiesCount').textContent = `${opportunities.length} opportunities`;
+
+        if (opportunities.length === 0) {
+          document.getElementById('opportunitiesTable').innerHTML = `
+            <div class="empty-state">No opportunities detected yet. Waiting for market data...</div>
+          `;
+          return;
+        }
+
+        const rows = opportunities.map(opp => `
+          <tr>
+            <td class="question-cell" title="${escapeHtml(opp.question)}">
+              ${truncateQuestion(opp.question, 35)}
+            </td>
+            <td class="${getDaysClass(opp.daysUntilClose)}">
+              ${formatDays(opp.daysUntilClose)}
+            </td>
+            <td>${opp.currentPrice !== null ? formatPrice(opp.currentPrice) : '-'}</td>
+            <td><span class="score ${getScoreClass(opp.anomalyScore)}">${formatScore(opp.anomalyScore)}</span></td>
+            <td><span class="score ${getScoreClass(opp.compositeScore)}">${formatScore(opp.compositeScore)}</span></td>
+            <td>${getSignalBadge(opp.signalStrength)}</td>
+            <td><span class="trigger-amount ${getTriggerAmountClass(opp.triggerTradeUsd)}">${formatTriggerAmount(opp.triggerTradeUsd)}</span></td>
+            <td><span class="${getWalletAgeClass(opp.triggerWalletAgeDays)}">${opp.triggerWalletAge || '-'}</span></td>
+            <td>${opp.triggerPolygonscanUrl
+              ? `<a href="${opp.triggerPolygonscanUrl}" target="_blank" rel="noopener" class="link-icon" title="View transaction on Polygonscan">Tx &#8599;</a>`
+              : '-'}</td>
+            <td>${opp.polymarketUrl
+              ? `<a href="${opp.polymarketUrl}" target="_blank" rel="noopener" class="link-icon" title="View on Polymarket">&#8599;</a>`
+              : '-'}</td>
+          </tr>
+        `).join('');
+
+        document.getElementById('opportunitiesTable').innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Question</th>
+                <th>Closes</th>
+                <th>Price</th>
+                <th>Anomaly</th>
+                <th>Composite</th>
+                <th>Signal</th>
+                <th>Trigger $</th>
+                <th>Wallet Age</th>
+                <th>Tx</th>
+                <th>Link</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      } catch (error) {
+        console.error('Failed to fetch opportunities:', error);
+        document.getElementById('opportunitiesTable').innerHTML = `
+          <div class="empty-state">Failed to load opportunities</div>
+        `;
+      }
+    }
+
+    async function fetchHoldings() {
+      try {
+        const response = await fetch(`${API_BASE}/api/positions`);
+        const data = await response.json();
+        const positions = data.positions || [];
+
+        document.getElementById('holdingsCount').textContent = `${positions.length} positions`;
+
+        const totalValue = positions.reduce((sum, p) => sum + (parseFloat(p.currentValueUsd) || parseFloat(p.sizeUsd) || 0), 0);
+        const unrealizedPnl = positions.reduce((sum, p) => sum + (parseFloat(p.unrealizedPnl) || 0), 0);
+
+        document.getElementById('totalValue').textContent = formatCurrency(totalValue);
+        const unrealizedPnlEl = document.getElementById('unrealizedPnl');
+        unrealizedPnlEl.textContent = (unrealizedPnl >= 0 ? '+' : '') + formatCurrency(unrealizedPnl);
+        unrealizedPnlEl.className = getPnlClass(unrealizedPnl);
+
+        if (positions.length === 0) {
+          document.getElementById('holdingsTable').innerHTML = `
+            <div class="empty-state">No open positions</div>
+          `;
+          return;
+        }
+
+        const rows = positions.map(pos => `
+          <tr>
+            <td><span class="token-id" title="${pos.tokenId}">${truncateId(pos.tokenId)}</span></td>
+            <td>${getSideBadge(pos.side)}</td>
+            <td>${formatPrice(pos.entryPrice)}</td>
+            <td>${formatPrice(pos.currentPrice || pos.entryPrice)}</td>
+            <td>${formatCurrency(pos.sizeUsd)}</td>
+            <td><span class="pnl ${getPnlClass(pos.unrealizedPnl)}">${(parseFloat(pos.unrealizedPnl) >= 0 ? '+' : '')}${formatCurrency(pos.unrealizedPnl || 0)}</span></td>
+          </tr>
+        `).join('');
+
+        document.getElementById('holdingsTable').innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Token ID</th>
+                <th>Side</th>
+                <th>Entry</th>
+                <th>Current</th>
+                <th>Size</th>
+                <th>Unrealized P&L</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      } catch (error) {
+        console.error('Failed to fetch holdings:', error);
+        document.getElementById('holdingsTable').innerHTML = `
+          <div class="empty-state">Failed to load positions</div>
+        `;
+      }
+    }
+
+    function formatTimeAgo(timestamp) {
+      const now = Date.now();
+      const diff = now - timestamp;
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+
+      if (hours > 0) return `${hours}h ago`;
+      if (minutes > 0) return `${minutes}m ago`;
+      return `${seconds}s ago`;
+    }
+
+    function formatActivityNumber(n) {
+      if (n >= 1000) return `${(n/1000).toFixed(1)}K`;
+      return n.toFixed(0);
+    }
+
+    function formatActivityPrice(p) {
+      return `${(p * 100).toFixed(1)}\u00a2`;
+    }
+
+    function formatActivityCurrency(n) {
+      if (n >= 1000) return `$${(n/1000).toFixed(1)}K`;
+      return `$${n.toFixed(0)}`;
+    }
+
+    function truncateText(str, len) {
+      if (!str) return '';
+      return str.length > len ? str.slice(0, len) + '...' : str;
+    }
+
+    function shortenAddress(addr) {
+      if (!addr) return 'Unknown';
+      return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    }
+
+    function isNewAccount(joinedTimestamp) {
+      if (!joinedTimestamp) return false;
+      const sixMonthsAgo = Date.now() - (180 * 24 * 60 * 60 * 1000);
+      return joinedTimestamp > sixMonthsAgo;
+    }
+
+    async function fetchActivity() {
+      try {
+        const minUsd = document.getElementById('activity-filter').value;
+        const response = await fetch(`${API_BASE}/api/activity?limit=20&minUsd=${minUsd}`);
+        const data = await response.json();
+        const activities = data.activity || [];
+
+        document.getElementById('activityCount').textContent = `${activities.length} trades`;
+
+        if (activities.length === 0) {
+          document.getElementById('activityList').innerHTML = `
+            <div class="no-activity">No recent activity in the last hour</div>
+          `;
+          return;
+        }
+
+        const items = activities.map(act => {
+          const timeAgo = formatTimeAgo(act.timestamp);
+          // Use displaySide from API if available, otherwise construct it
+          const displaySide = act.displaySide || (act.side === 'buy' ? `bought ${act.outcome}` : `sold ${act.outcome}`);
+          const actionClass = act.side === 'buy' ? 'action-buy' : 'action-sell';
+          const username = act.username || shortenAddress(act.walletAddress);
+          const total = formatActivityCurrency(act.sizeUsd);
+          const joinedInfo = act.joinedDate ? `Joined ${act.joinedDate}` : '';
+          const joinedClass = isNewAccount(act.joinedTimestamp) ? 'joined-new' : 'joined-old';
+
+          return `
+            <div class="activity-item">
+              <div class="activity-avatar">
+                <img src="https://api.dicebear.com/7.x/identicon/svg?seed=${act.walletAddress}" alt="" />
+              </div>
+              <div class="activity-content">
+                <div class="activity-main">
+                  <a href="${act.profileUrl}" target="_blank" class="activity-user">${escapeHtml(username)}</a>
+                  <span class="${actionClass}">${escapeHtml(displaySide)}</span>
+                  <span class="activity-for">for</span>
+                  <span class="activity-market" title="${escapeHtml(act.question)}">${truncateText(act.question, 30)}</span>
+                  <span class="activity-at">at ${formatActivityPrice(act.price)}</span>
+                  <span class="activity-total">(${total})</span>
+                </div>
+                <div class="activity-meta">
+                  <span class="activity-time">${timeAgo}</span>
+                  ${joinedInfo ? `<span class="${joinedClass}" title="Account age">${joinedInfo}</span>` : ''}
+                  <a href="${act.polygonscanUrl}" target="_blank" class="activity-tx" title="View on Polygonscan">View Tx &#8599;</a>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('activityList').innerHTML = items;
+      } catch (error) {
+        console.error('Failed to fetch activity:', error);
+        document.getElementById('activityList').innerHTML = `
+          <div class="no-activity">Failed to load activity</div>
+        `;
+      }
+    }
+
+    async function fetchTopBets() {
+      try {
+        const response = await fetch(`${API_BASE}/api/activity/top?limit=10`);
+        const data = await response.json();
+        const trades = data.trades || [];
+
+        document.getElementById('topBetsCount').textContent = `${trades.length} buys`;
+
+        if (trades.length === 0) {
+          document.getElementById('topBetsGrid').innerHTML = `
+            <div class="no-activity">No buys in the last hour</div>
+          `;
+          return;
+        }
+
+        const rankClasses = ['gold', 'silver', 'bronze', '', '', '', '', '', '', ''];
+        const rankLabels = ['#1', '#2', '#3', '#4', '#5', '#6', '#7', '#8', '#9', '#10'];
+
+        const cards = trades.map((trade, index) => {
+          const rankClass = rankClasses[index] || '';
+          const rankLabel = rankLabels[index] || `#${index + 1}`;
+          const timeAgo = formatTimeAgo(trade.timestamp);
+          // Use displaySide from API if available, otherwise construct it
+          const displaySide = trade.displaySide || (trade.side === 'buy' ? `bought ${trade.outcome}` : `sold ${trade.outcome}`);
+          const actionClass = trade.side === 'buy' ? 'action-buy' : 'action-sell';
+          const username = trade.username || shortenAddress(trade.walletAddress);
+          const joinedInfo = trade.joinedDate ? `Joined ${trade.joinedDate}` : '';
+          const joinedClass = isNewAccount(trade.joinedTimestamp) ? 'joined-new' : 'joined-old';
+
+          return `
+            <div class="top-bet-card ${rankClass}">
+              <div class="top-bet-rank">${rankLabel}</div>
+              <div class="top-bet-amount">${formatActivityCurrency(trade.sizeUsd)}</div>
+              <div class="top-bet-action">
+                <span class="${actionClass}">${escapeHtml(displaySide)}</span>
+                at ${formatActivityPrice(trade.price)}
+              </div>
+              <div class="top-bet-market" title="${escapeHtml(trade.question)}">${truncateText(trade.question, 60)}</div>
+              <div class="top-bet-meta">
+                <div class="top-bet-wallet">
+                  <img src="https://api.dicebear.com/7.x/identicon/svg?seed=${trade.walletAddress}" alt="" />
+                  <a href="${trade.profileUrl}" target="_blank">${escapeHtml(username)}</a>
+                </div>
+                <span>${timeAgo}</span>
+                ${joinedInfo ? `<span class="${joinedClass}">${joinedInfo}</span>` : ''}
+                <a href="${trade.polygonscanUrl}" target="_blank" title="View on Polygonscan">View Tx &#8599;</a>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('topBetsGrid').innerHTML = cards;
+      } catch (error) {
+        console.error('Failed to fetch top bets:', error);
+        document.getElementById('topBetsGrid').innerHTML = `
+          <div class="no-activity">Failed to load top bets</div>
+        `;
+      }
+    }
+
+    function formatMinutesToReadable(minutes) {
+      if (minutes <= 0) return 'Closed';
+      if (minutes < 60) return `${Math.round(minutes)}m`;
+      if (minutes < 1440) return `${(minutes / 60).toFixed(1)}h`;
+      return `${(minutes / 1440).toFixed(1)}d`;
+    }
+
+    function getClosingTimeClass(minutes) {
+      if (minutes <= 60) return 'days-urgent';
+      if (minutes <= 360) return 'days-soon';
+      return 'days-normal';
+    }
+
+    async function fetchClosingMarkets() {
+      try {
+        const response = await fetch(`${API_BASE}/api/markets/closing-soon?minutes=1440&limit=10`);
+        const data = await response.json();
+        const markets = data.markets || [];
+
+        document.getElementById('closingMarketCount').textContent = `${markets.length} markets`;
+
+        if (markets.length === 0) {
+          document.getElementById('closingMarketsContainer').innerHTML = `
+            <div class="no-activity">No non-sports markets closing within 24 hours</div>
+          `;
+          return;
+        }
+
+        const rows = markets.map(market => {
+          const timeClass = getClosingTimeClass(market.timeToCloseMinutes);
+          const timeFormatted = formatMinutesToReadable(market.timeToCloseMinutes);
+          const category = market.category || 'Unknown';
+
+          return `
+            <div class="closing-market-row">
+              <div class="closing-market-info">
+                <div class="closing-market-question" title="${escapeHtml(market.question)}">${escapeHtml(market.question)}</div>
+                <div class="closing-market-category">${escapeHtml(category)}</div>
+              </div>
+              <div class="closing-market-time ${timeClass}">${timeFormatted}</div>
+              <div class="closing-market-link">
+                <a href="https://polymarket.com/event/${market.conditionId}" target="_blank" class="link-icon" title="View on Polymarket">&#8599;</a>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('closingMarketsContainer').innerHTML = rows;
+      } catch (error) {
+        console.error('Failed to fetch closing markets:', error);
+        document.getElementById('closingMarketsContainer').innerHTML = `
+          <div class="no-activity">Failed to load markets</div>
+        `;
+      }
+    }
+
+    function updateTimestamp() {
+      const now = new Date();
+      document.getElementById('lastUpdate').textContent = `Updated ${now.toLocaleTimeString()}`;
+    }
+
+    async function refresh() {
+      await Promise.all([
+        fetchStats(),
+        fetchOpportunities(),
+        fetchHoldings()
+      ]);
+      updateTimestamp();
+    }
+
+    // Initial load
+    refresh();
+    fetchActivity();
+    fetchTopBets();
+    fetchClosingMarkets();
+
+    // Auto-refresh every 5 seconds for main data
+    setInterval(refresh, REFRESH_INTERVAL);
+
+    // Refresh activity every 5 seconds (near real-time)
+    setInterval(fetchActivity, 5000);
+
+    // Refresh top bets every 10 seconds
+    setInterval(fetchTopBets, 10000);
+
+    // Refresh closing markets every 30 seconds
+    setInterval(fetchClosingMarkets, 30000);
+  </script>
+</body>
+</html>

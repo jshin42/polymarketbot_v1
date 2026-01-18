@@ -1,0 +1,219 @@
+# =============================================================================
+# Polymarket Anomaly Bot - Development Environment
+# =============================================================================
+#
+# One-command startup: docker compose up -d
+#
+# This configuration runs all services in paper trading mode by default.
+# Live trading is disabled unless explicitly enabled via environment variable.
+#
+# Services:
+# - postgres: TimescaleDB for time-series data
+# - redis: Cache and BullMQ job queue
+# - collector: Pulls market data from Polymarket
+# - feature-engine: Computes feature vectors
+# - scorer: Calculates anomaly/execution/edge scores
+# - strategy: Makes trading decisions with risk guards
+# - paper-engine: Simulates execution and tracks positions
+# - dashboard: REST API for monitoring
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Infrastructure Services
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: polymarket-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-polymarket}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-polymarket_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-polymarketbot}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-polymarket}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - polymarket-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: polymarket-redis
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - polymarket-network
+
+  # ---------------------------------------------------------------------------
+  # Application Services
+  # ---------------------------------------------------------------------------
+
+  collector:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.collector
+    container_name: polymarket-collector
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=${POSTGRES_USER:-polymarket}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-polymarket_dev_password}
+      - POSTGRES_DB=${POSTGRES_DB:-polymarketbot}
+      - POLYMARKET_API_KEY=${POLYMARKET_API_KEY:-}
+      - POLYMARKET_SECRET=${POLYMARKET_SECRET:-}
+      - POLYMARKET_PASSPHRASE=${POLYMARKET_PASSPHRASE:-}
+      - POLYMARKET_ADDRESS=${POLYMARKET_ADDRESS:-}
+      - MARKET_METADATA_INTERVAL_MS=${MARKET_METADATA_INTERVAL_MS:-300000}
+      - ORDERBOOK_INTERVAL_MS=${ORDERBOOK_INTERVAL_MS:-5000}
+      - TRADE_POLL_INTERVAL_MS=${TRADE_POLL_INTERVAL_MS:-1000}
+      - TRACK_WITHIN_HOURS=${TRACK_WITHIN_HOURS:-4320}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - polymarket-network
+
+  feature-engine:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.feature-engine
+    container_name: polymarket-feature-engine
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      redis:
+        condition: service_healthy
+      collector:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - polymarket-network
+
+  scorer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.scorer
+    container_name: polymarket-scorer
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      redis:
+        condition: service_healthy
+      feature-engine:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - polymarket-network
+
+  strategy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.strategy
+    container_name: polymarket-strategy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PAPER_MODE=true
+      - ENABLE_LIVE_TRADING=false
+      - MIN_ANOMALY_SCORE=${MIN_ANOMALY_SCORE:-0.65}
+      - MIN_EXECUTION_SCORE=${MIN_EXECUTION_SCORE:-0.55}
+      - MIN_EDGE_SCORE=${MIN_EDGE_SCORE:-0.30}
+      - KELLY_FRACTION=${KELLY_FRACTION:-0.25}
+      - MAX_BET_PCT=${MAX_BET_PCT:-0.02}
+      - MAX_POSITION_PCT=${MAX_POSITION_PCT:-0.05}
+      - MAX_EXPOSURE_PCT=${MAX_EXPOSURE_PCT:-0.10}
+      - DAILY_LOSS_LIMIT_PCT=${DAILY_LOSS_LIMIT_PCT:-0.05}
+      - MAX_DRAWDOWN_PCT=${MAX_DRAWDOWN_PCT:-0.15}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      redis:
+        condition: service_healthy
+      scorer:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - polymarket-network
+
+  paper-engine:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.paper-engine
+    container_name: polymarket-paper-engine
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PAPER_INITIAL_BANKROLL=${PAPER_INITIAL_BANKROLL:-10000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      redis:
+        condition: service_healthy
+      strategy:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - polymarket-network
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+    container_name: polymarket-dashboard
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=${POSTGRES_USER:-polymarket}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-polymarket_dev_password}
+      - POSTGRES_DB=${POSTGRES_DB:-polymarketbot}
+      - PORT=${DASHBOARD_PORT:-3000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    ports:
+      - "${DASHBOARD_PORT:-3000}:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - polymarket-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  polymarket-network:
+    driver: bridge

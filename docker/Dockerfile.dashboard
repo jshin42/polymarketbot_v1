@@ -1,0 +1,57 @@
+# =============================================================================
+# Dashboard Service Dockerfile
+# =============================================================================
+# Provides REST API for:
+# - Viewing positions and P&L
+# - Querying scores and decisions
+# - Health checks and metrics
+# =============================================================================
+
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+WORKDIR /app
+RUN apk add --no-cache python3 make g++
+
+# Dependencies stage
+FROM base AS dependencies
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/collector/package.json ./packages/collector/
+COPY packages/dashboard/package.json ./packages/dashboard/
+RUN pnpm install --frozen-lockfile
+
+# Builder stage
+FROM dependencies AS builder
+COPY tsconfig.base.json ./
+COPY packages/shared ./packages/shared
+COPY packages/collector ./packages/collector
+COPY packages/dashboard ./packages/dashboard
+RUN pnpm --filter @polymarketbot/shared build && \
+    pnpm --filter @polymarketbot/collector build && \
+    pnpm --filter @polymarketbot/dashboard build
+
+# Production stage
+FROM node:20-alpine AS production
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/collector/package.json ./packages/collector/
+COPY packages/dashboard/package.json ./packages/dashboard/
+RUN pnpm install --frozen-lockfile --prod
+
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/collector/dist ./packages/collector/dist
+COPY --from=builder /app/packages/dashboard/dist ./packages/dashboard/dist
+COPY packages/dashboard/public ./packages/dashboard/public
+
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+USER nodejs
+
+ENV NODE_ENV=production
+ENV RUN_DASHBOARD=true
+
+EXPOSE 3000
+
+CMD ["node", "packages/dashboard/dist/index.js"]

@@ -1,0 +1,84 @@
+# =============================================================================
+# Polymarket Anomaly Bot - Development Environment with Hot Reload
+# =============================================================================
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# This override file provides:
+# - Volume mounts for live code changes
+# - Development mode commands with watch
+# - Debug logging enabled
+# =============================================================================
+
+services:
+  collector:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.collector
+      target: dependencies
+    volumes:
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/collector/src:/app/packages/collector/src
+    command: ["pnpm", "--filter", "@polymarketbot/collector", "dev"]
+    environment:
+      - LOG_LEVEL=debug
+
+  feature-engine:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.feature-engine
+      target: dependencies
+    volumes:
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/feature-engine/src:/app/packages/feature-engine/src
+    command: ["pnpm", "--filter", "@polymarketbot/feature-engine", "dev"]
+    environment:
+      - LOG_LEVEL=debug
+
+  scorer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.scorer
+      target: dependencies
+    volumes:
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/scorer/src:/app/packages/scorer/src
+    command: ["pnpm", "--filter", "@polymarketbot/scorer", "dev"]
+    environment:
+      - LOG_LEVEL=debug
+
+  strategy:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.strategy
+      target: dependencies
+    volumes:
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/strategy/src:/app/packages/strategy/src
+    command: ["pnpm", "--filter", "@polymarketbot/strategy", "dev"]
+    environment:
+      - LOG_LEVEL=debug
+
+  paper-engine:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.paper-engine
+      target: dependencies
+    volumes:
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/paper-engine/src:/app/packages/paper-engine/src
+    command: ["pnpm", "--filter", "@polymarketbot/paper-engine", "dev"]
+    environment:
+      - LOG_LEVEL=debug
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+      target: dependencies
+    volumes:
+      - ./packages/shared/src:/app/packages/shared/src
+      - ./packages/dashboard/src:/app/packages/dashboard/src
+    command: ["pnpm", "--filter", "@polymarketbot/dashboard", "dev"]
+    environment:
+      - LOG_LEVEL=debug
