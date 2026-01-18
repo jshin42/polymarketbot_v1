@@ -538,7 +538,21 @@ export class AggregationService {
       return bTrigger - aTrigger;
     });
 
-    return opportunities;
+    // GROUP BY EVENT: Keep only best outcome per event (by eventSlug)
+    // This prevents showing all outcomes from same event (e.g., all 15 Portugal candidates)
+    // Shows only the best-ranked outcome for each unique event
+    const seenEvents = new Set<string>();
+    const groupedOpportunities = opportunities.filter(opp => {
+      // Use eventSlug for grouping, fallback to conditionId
+      const eventKey = opp.eventSlug || opp.conditionId;
+      if (seenEvents.has(eventKey)) {
+        return false; // Skip - already have a better-ranked outcome for this event
+      }
+      seenEvents.add(eventKey);
+      return true;
+    });
+
+    return groupedOpportunities;
   }
 
   /**
@@ -704,6 +718,10 @@ export class AggregationService {
 
         // Minimum $500 threshold
         if (a.sizeUsd < MIN_TOP_TRADE_USD) return false;
+
+        // ASYMMETRIC FILTER: Exclude trades at 90¢+ (minimal upside potential)
+        // Buying at 90¢ = max 10¢ upside vs 90¢ downside = not asymmetric
+        if (a.price > 0.90) return false;
 
         // Exclude sports/esports based on question text
         const questionLower = (a.question || '').toLowerCase();

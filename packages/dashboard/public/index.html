@@ -1132,6 +1132,7 @@
                 <span>${timeAgo}</span>
                 ${joinedInfo ? `<span class="${joinedClass}">${joinedInfo}</span>` : ''}
                 <a href="${trade.polygonscanUrl}" target="_blank" title="View on Polygonscan">View Tx &#8599;</a>
+                ${trade.polymarketUrl ? `<a href="${trade.polymarketUrl}" target="_blank" title="View on Polymarket">Market &#8599;</a>` : ''}
               </div>
             </div>
           `;
