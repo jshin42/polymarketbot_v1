@@ -645,7 +645,7 @@ export class AggregationService {
 
       // Betting patterns (strong indicators of sports betting)
       'o/u ', 'over/under', 'handicap', 'point spread', 'moneyline',
-      ' vs. ', ' vs ', // Common in sports matchups
+      'vs.', 'vs ', // Matchup patterns (no leading space needed)
 
       // NFL teams
       'patriots', 'texans', 'rams', 'chiefs', 'eagles', 'cowboys', 'packers',
@@ -661,14 +661,27 @@ export class AggregationService {
       'thunder', 'blazers', 'jazz', 'kings', 'magic', 'pistons', 'pacers',
       'hornets', 'hawks', 'cavaliers', 'wizards',
 
+      // Soccer/Football (international clubs & leagues)
+      'fútbol', 'futbol', ' fc', 'ac milan', 'inter milan', 'as roma',
+      'arsenal', 'chelsea', 'liverpool', 'manchester', 'tottenham',
+      'real madrid', 'barcelona', 'atletico', 'real sociedad', 'sevilla',
+      'juventus', 'napoli', 'lazio', 'fiorentina', 'lecce',
+      'bayern', 'borussia', 'leverkusen', 'leipzig',
+      'psg', 'marseille', 'lyon', 'olympique', 'stade', 'brestois',
+      'ajax', 'psv', 'feyenoord', 'benfica', 'porto', 'sporting',
+      'la liga', 'premier league', 'serie a', 'bundesliga', 'ligue 1',
+      'eredivisie', 'primeira liga', 'uefa', 'fifa',
+
       // Esports games
       'call of duty', 'league of legends', 'counter-strike', 'cs2', 'csgo',
       'dota', 'valorant', 'overwatch', 'fortnite', 'pubg', 'apex legends',
       'rainbow six', 'rocket league', 'halo', 'starcraft',
+      'lol:', 'lol ', // LoL shorthand
 
       // Common esports teams/orgs
       'natus vincere', 'navi', 'faze', 'g2', 'team liquid', 'fnatic',
       'cloud9', 'tsm', '100 thieves', 'sentinels', 'optic',
+      'karmine', 'movistar', 'koi',
     ];
 
     const MIN_TOP_TRADE_USD = 500;
@@ -713,7 +726,7 @@ export class AggregationService {
 
       // Betting patterns (strong indicators of sports betting)
       'o/u ', 'over/under', 'handicap', 'point spread', 'moneyline',
-      ' vs. ', ' vs ', // Common in sports matchups
+      'vs.', 'vs ', // Matchup patterns (no leading space needed)
 
       // NFL teams
       'patriots', 'texans', 'rams', 'chiefs', 'eagles', 'cowboys', 'packers',
@@ -729,14 +742,27 @@ export class AggregationService {
       'thunder', 'blazers', 'jazz', 'kings', 'magic', 'pistons', 'pacers',
       'hornets', 'hawks', 'cavaliers', 'wizards',
 
+      // Soccer/Football (international clubs & leagues)
+      'fútbol', 'futbol', ' fc', 'ac milan', 'inter milan', 'as roma',
+      'arsenal', 'chelsea', 'liverpool', 'manchester', 'tottenham',
+      'real madrid', 'barcelona', 'atletico', 'real sociedad', 'sevilla',
+      'juventus', 'napoli', 'lazio', 'fiorentina', 'lecce',
+      'bayern', 'borussia', 'leverkusen', 'leipzig',
+      'psg', 'marseille', 'lyon', 'olympique', 'stade', 'brestois',
+      'ajax', 'psv', 'feyenoord', 'benfica', 'porto', 'sporting',
+      'la liga', 'premier league', 'serie a', 'bundesliga', 'ligue 1',
+      'eredivisie', 'primeira liga', 'uefa', 'fifa',
+
       // Esports games
       'call of duty', 'league of legends', 'counter-strike', 'cs2', 'csgo',
       'dota', 'valorant', 'overwatch', 'fortnite', 'pubg', 'apex legends',
       'rainbow six', 'rocket league', 'halo', 'starcraft',
+      'lol:', 'lol ', // LoL shorthand
 
       // Common esports teams/orgs
       'natus vincere', 'navi', 'faze', 'g2', 'team liquid', 'fnatic',
       'cloud9', 'tsm', '100 thieves', 'sentinels', 'optic',
+      'karmine', 'movistar', 'koi',
     ];
 
     const allMarkets = await this.getTrackedMarkets();
