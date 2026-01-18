@@ -41,7 +41,7 @@ export function registerMarketsRoutes(
     '/api/markets/closing-soon',
     async (request, reply) => {
       try {
-        const minutes = parseInt(request.query.minutes ?? '1440', 10);
+        const minutes = parseInt(request.query.minutes ?? '10080', 10); // Default 7 days (was 24h)
         const excludeSports = request.query.excludeSports !== 'false';
         const limit = parseInt(request.query.limit ?? '20', 10);
 

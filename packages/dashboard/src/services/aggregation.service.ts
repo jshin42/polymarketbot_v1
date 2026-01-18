@@ -525,8 +525,18 @@ export class AggregationService {
       }
     }
 
-    // Sort by composite score descending (highest first)
-    opportunities.sort((a, b) => b.compositeScore - a.compositeScore);
+    // Primary sort: days to close ASC (soonest first)
+    // Secondary sort: trigger trade USD DESC (largest triggers first)
+    opportunities.sort((a, b) => {
+      // Primary: days until close (soonest first)
+      const daysCompare = a.daysUntilClose - b.daysUntilClose;
+      if (daysCompare !== 0) return daysCompare;
+
+      // Secondary: trigger trade size (largest first, nulls last)
+      const aTrigger = a.triggerTradeUsd ?? 0;
+      const bTrigger = b.triggerTradeUsd ?? 0;
+      return bTrigger - aTrigger;
+    });
 
     return opportunities;
   }
@@ -538,8 +548,9 @@ export class AggregationService {
   async getRecentActivity(limit: number = 20): Promise<RecentTradeActivity[]> {
     try {
       // Fetch recent trades from Data API (sorted by timestamp descending)
+      // Fetch 500 (API max) to find more qualifying non-sports trades
       const trades = await this.dataApiClient.getTrades({
-        limit: 100, // Fetch more than needed to filter
+        limit: 500, // Maximum allowed by API (was 100)
         sortBy: 'TIMESTAMP',
         sortDirection: 'DESC',
       });
@@ -630,7 +641,7 @@ export class AggregationService {
    * Filtered to BUY side only, >= $500, excludes sports/esports, sorted by sizeUsd descending.
    */
   async getTopTrades(limit: number = 10): Promise<RecentTradeActivity[]> {
-    const allActivity = await this.getRecentActivity(100);
+    const allActivity = await this.getRecentActivity(500); // Fetch 500 to find more qualifying trades
 
     // Comprehensive sports/esports/betting exclusion patterns
     const exclusions = [
@@ -711,7 +722,7 @@ export class AggregationService {
     maxMinutes?: number;
     limit?: number;
   }): Promise<MarketSummary[]> {
-    const { maxMinutes = 1440, limit = 20 } = options;
+    const { maxMinutes = 10080, limit = 20 } = options; // Default 7 days (was 24h)
 
     // Comprehensive sports/esports/betting exclusion patterns
     const exclusions = [
