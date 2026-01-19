@@ -7,11 +7,13 @@ import { dirname, join } from 'path';
 import { createLogger, Redis } from '@polymarketbot/shared';
 
 import { AggregationService } from './services/aggregation.service.js';
+import { AnalysisService } from './services/analysis.service.js';
 import { registerHealthRoutes } from './routes/health.route.js';
 import { registerMarketsRoutes } from './routes/markets.route.js';
 import { registerScoresRoutes } from './routes/scores.route.js';
 import { registerPositionsRoutes } from './routes/positions.route.js';
 import { registerStatsRoutes } from './routes/stats.route.js';
+import { registerAnalysisRoutes } from './routes/analysis.route.js';
 
 // =============================================================================
 // Exports
@@ -23,6 +25,8 @@ export { registerMarketsRoutes } from './routes/markets.route.js';
 export { registerScoresRoutes } from './routes/scores.route.js';
 export { registerPositionsRoutes } from './routes/positions.route.js';
 export { registerStatsRoutes } from './routes/stats.route.js';
+export { AnalysisService } from './services/analysis.service.js';
+export { registerAnalysisRoutes } from './routes/analysis.route.js';
 
 // =============================================================================
 // Service Entry Point
@@ -73,8 +77,9 @@ async function main() {
     logger.info('PostgreSQL not configured - running without database');
   }
 
-  // Initialize aggregation service
+  // Initialize services
   const aggregationService = new AggregationService(redis, pgPool ?? undefined);
+  const analysisService = new AnalysisService(redis, pgPool ?? undefined);
 
   // Create Fastify server
   const app = Fastify({
@@ -101,6 +106,7 @@ async function main() {
   registerScoresRoutes(app, redis, aggregationService);
   registerPositionsRoutes(app, aggregationService);
   registerStatsRoutes(app, redis, aggregationService);
+  registerAnalysisRoutes(app, analysisService, pgPool ?? undefined);
 
   // Start server
   const host = process.env.DASHBOARD_HOST ?? '0.0.0.0';

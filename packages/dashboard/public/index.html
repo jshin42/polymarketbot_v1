@@ -577,49 +577,677 @@
       border-radius: 50%;
     }
 
-    /* Markets Closing Soon Section */
-    .closing-market-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 16px;
-      border-bottom: 1px solid #21262d;
+    /* Closing Markets Section */
+    .closing-markets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 16px;
     }
 
-    .closing-market-row:hover {
-      background: #1c2128;
-    }
-
-    .closing-market-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .closing-market-question {
-      font-size: 14px;
-      color: #c9d1d9;
-      margin-bottom: 4px;
+    .closing-market-card {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 1px solid #ff6b6b;
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
       overflow: hidden;
-      text-overflow: ellipsis;
+    }
+
+    .closing-market-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #ff6b6b, #feca57);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .closing-market-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .closing-market-timer {
+      background: #ff6b6b;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
       white-space: nowrap;
     }
 
-    .closing-market-category {
-      font-size: 11px;
-      color: #6e7681;
-      text-transform: uppercase;
+    .closing-market-timer.urgent {
+      background: #f85149;
+      animation: blink 1s ease-in-out infinite;
     }
 
-    .closing-market-time {
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .closing-market-question {
+      flex: 1;
       font-size: 14px;
       font-weight: 600;
-      min-width: 80px;
+      color: #f0f6fc;
+      line-height: 1.4;
+      margin-right: 12px;
+    }
+
+    .closing-market-question a {
+      color: #58a6ff;
+      text-decoration: none;
+    }
+
+    .closing-market-question a:hover {
+      text-decoration: underline;
+    }
+
+    .closing-market-buys {
+      margin-top: 12px;
+      border-top: 1px solid #30363d;
+      padding-top: 12px;
+    }
+
+    .closing-market-buys-title {
+      font-size: 11px;
+      color: #8b949e;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .closing-buy-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 13px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .closing-buy-item:last-child {
+      border-bottom: none;
+    }
+
+    .closing-buy-amount {
+      font-weight: 600;
+      color: #3fb950;
+    }
+
+    .closing-buy-details {
+      color: #8b949e;
+      font-size: 12px;
+    }
+
+    .closing-buy-time {
+      color: #6e7681;
+      font-size: 11px;
+    }
+
+    .no-buys {
+      color: #6e7681;
+      font-size: 12px;
+      font-style: italic;
+    }
+
+    .closing-market-outcomes {
+      margin-top: 12px;
+      border-top: 1px solid #30363d;
+      padding-top: 12px;
+    }
+
+    .closing-market-outcome {
+      padding: 8px 0;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .closing-market-outcome:last-child {
+      border-bottom: none;
+    }
+
+    .outcome-name {
+      font-weight: 600;
+      color: #c9d1d9;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .outcome-buys {
+      padding-left: 12px;
+    }
+
+    /* Pagination Controls */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 12px 0;
+      border-top: 1px solid #30363d;
+    }
+
+    .pagination-btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.15s ease;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+      background: #30363d;
+      border-color: #8b949e;
+    }
+
+    .pagination-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pagination-info {
+      color: #8b949e;
+      font-size: 13px;
+      padding: 0 12px;
+    }
+
+    .pagination-info .current-page {
+      color: #58a6ff;
+      font-weight: 600;
+    }
+
+    /* Tab Navigation */
+    .tab-nav {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #30363d;
+      padding-bottom: 0;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s ease;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover {
+      color: #c9d1d9;
+      background: #161b22;
+    }
+
+    .tab-btn.active {
+      color: #f0f6fc;
+      border-bottom-color: #58a6ff;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Research Tab Styles */
+    .research-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .research-stat-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .research-stat-card.highlight {
+      border-color: #58a6ff;
+      background: linear-gradient(135deg, rgba(88, 166, 255, 0.1) 0%, #161b22 100%);
+    }
+
+    .research-stat-card.positive {
+      border-color: #3fb950;
+    }
+
+    .research-stat-card.negative {
+      border-color: #f85149;
+    }
+
+    .research-stat-label {
+      font-size: 12px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .research-stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 4px;
+    }
+
+    .research-stat-value.positive {
+      color: #3fb950;
+    }
+
+    .research-stat-value.negative {
+      color: #f85149;
+    }
+
+    .research-stat-subtitle {
+      font-size: 12px;
+      color: #6e7681;
+    }
+
+    .research-chart-container {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    .research-chart-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-bottom: 16px;
+    }
+
+    .research-chart {
+      height: 200px;
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      padding: 20px 0;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .chart-bar {
+      flex: 1;
+      min-width: 20px;
+      max-width: 40px;
+      background: #58a6ff;
+      border-radius: 2px 2px 0 0;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .chart-bar:hover {
+      background: #79b8ff;
+    }
+
+    .chart-bar.positive {
+      background: #3fb950;
+    }
+
+    .chart-bar.negative {
+      background: #f85149;
+    }
+
+    .chart-bar-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #21262d;
+      color: #c9d1d9;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+    }
+
+    .chart-bar:hover .chart-bar-tooltip {
+      opacity: 1;
+    }
+
+    .chart-axis {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 8px;
+      font-size: 11px;
+      color: #6e7681;
+    }
+
+    .contrarian-signals-table {
+      width: 100%;
+    }
+
+    .contrarian-signals-table th {
+      background: #0d1117;
+    }
+
+    .result-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .result-badge.won {
+      background: rgba(63, 185, 80, 0.2);
+      color: #3fb950;
+    }
+
+    .result-badge.lost {
+      background: rgba(248, 81, 73, 0.2);
+      color: #f85149;
+    }
+
+    .result-badge.pending {
+      background: rgba(139, 148, 158, 0.2);
+      color: #8b949e;
+    }
+
+    .methodology-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 24px;
+    }
+
+    .methodology-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-bottom: 12px;
+    }
+
+    .methodology-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .methodology-list li {
+      color: #8b949e;
+      font-size: 13px;
+      padding: 4px 0;
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .methodology-list li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: #58a6ff;
+    }
+
+    .research-controls {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .research-controls label {
+      font-size: 13px;
+      color: #8b949e;
+    }
+
+    .research-controls select,
+    .research-controls input {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .research-controls select:focus,
+    .research-controls input:focus {
+      border-color: #58a6ff;
+      outline: none;
+    }
+
+    .refresh-btn {
+      background: #238636;
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .refresh-btn:hover {
+      background: #2ea043;
+    }
+
+    .refresh-btn:disabled {
+      background: #21262d;
+      cursor: not-allowed;
+    }
+
+    .backfill-btn {
+      background: #6e40c9;
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .backfill-btn:hover {
+      background: #8957e5;
+    }
+
+    .backfill-btn:disabled {
+      background: #21262d;
+      cursor: not-allowed;
+    }
+
+    .backfill-banner {
+      background: #6e40c9;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .backfill-banner.completed {
+      background: #238636;
+    }
+
+    .backfill-banner.error {
+      background: #f85149;
+    }
+
+    .time-split-section {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    .time-split-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .time-split-card {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .time-split-label {
+      font-size: 11px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .time-split-auc {
+      font-size: 24px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 4px;
+    }
+
+    .time-split-meta {
+      font-size: 12px;
+      color: #6e7681;
+    }
+
+    .model-report-content {
+      padding: 16px;
+    }
+
+    .model-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .model-metric-card {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .model-metric-label {
+      font-size: 11px;
+      color: #8b949e;
+      margin-bottom: 4px;
+    }
+
+    .model-metric-value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #f0f6fc;
+    }
+
+    .feature-importance-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .feature-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-name {
+      font-size: 12px;
+      color: #8b949e;
+      width: 140px;
       text-align: right;
     }
 
-    .closing-market-link {
-      margin-left: 12px;
+    .feature-bar-track {
+      flex: 1;
+      height: 12px;
+      background: #21262d;
+      border-radius: 4px;
+      overflow: hidden;
     }
+
+    .feature-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #58a6ff, #3fb950);
+      border-radius: 4px;
+    }
+
+    .feature-value {
+      font-size: 11px;
+      color: #6e7681;
+      width: 40px;
+    }
+
+    .contrarian-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-left: 4px;
+    }
+
+    .contrarian-badge.price {
+      background: rgba(88, 166, 255, 0.2);
+      color: #58a6ff;
+    }
+
+    .contrarian-badge.trend {
+      background: rgba(210, 153, 34, 0.2);
+      color: #d29922;
+    }
+
+    .contrarian-badge.ofi {
+      background: rgba(163, 113, 247, 0.2);
+      color: #a371f7;
+    }
+
+    .contrarian-badge.book {
+      background: rgba(63, 185, 80, 0.2);
+      color: #3fb950;
+    }
+
+    .contrarian-badge.wallet {
+      background: rgba(248, 81, 73, 0.2);
+      color: #f85149;
+    }
+
+    .contrarian-badge.tail {
+      background: rgba(255, 215, 0, 0.2);
+      color: #ffd700;
+    }
+
   </style>
 </head>
 <body>
@@ -631,6 +1259,15 @@
         <span id="lastUpdate">Loading...</span>
       </div>
     </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('live')">Live Dashboard</button>
+      <button class="tab-btn" onclick="switchTab('research')">Research & Analysis</button>
+    </nav>
+
+    <!-- Live Dashboard Tab -->
+    <div id="live-tab" class="tab-content active">
 
     <div class="stats-grid">
       <div class="stat-card">
@@ -661,7 +1298,7 @@
 
     <section>
       <div class="section-header">
-        <div class="section-title">Top 10 Largest Buys (Last Hour)</div>
+        <div class="section-title">Top 10 Largest Buys (Last 24 Hours)</div>
         <div class="section-count" id="topBetsCount">0 buys</div>
       </div>
       <div class="top-bets-grid" id="topBetsGrid">
@@ -674,13 +1311,13 @@
 
     <section>
       <div class="section-header">
-        <div class="section-title">Markets Closing Soon (Political & Economic)</div>
-        <div class="section-count" id="closingMarketCount">0 markets</div>
+        <div class="section-title">🔥 Markets Closing Soon</div>
+        <div class="section-count" id="closingMarketsCount">0 markets</div>
       </div>
-      <div id="closingMarketsContainer">
+      <div class="closing-markets-grid" id="closingMarketsGrid">
         <div class="loading">
           <div class="spinner"></div>
-          Loading markets...
+          Loading closing markets...
         </div>
       </div>
     </section>
@@ -734,11 +1371,638 @@
         </div>
       </div>
     </section>
+
+    </div><!-- End Live Dashboard Tab -->
+
+    <!-- Research & Analysis Tab -->
+    <div id="research-tab" class="tab-content">
+
+      <!-- Backfill Status Banner -->
+      <div id="backfill-status-banner" class="backfill-banner" style="display: none;">
+        <span id="backfill-status-text">Backfill in progress...</span>
+        <span id="backfill-progress"></span>
+      </div>
+
+      <div class="research-controls">
+        <label>
+          Lookback:
+          <select id="research-lookback" onchange="fetchResearchData()">
+            <option value="30" selected>30 days</option>
+            <option value="60">60 days</option>
+          </select>
+        </label>
+        <label>
+          Min Size:
+          <select id="research-min-size" onchange="fetchResearchData()">
+            <option value="500">$500+</option>
+            <option value="1000" selected>$1,000+</option>
+            <option value="5000">$5,000+</option>
+            <option value="10000">$10,000+</option>
+          </select>
+        </label>
+        <label>
+          Window:
+          <select id="research-window" onchange="fetchResearchData()">
+            <option value="30">30 min</option>
+            <option value="60" selected>60 min</option>
+            <option value="120">120 min</option>
+          </select>
+        </label>
+        <label>
+          Contrarian Mode:
+          <select id="research-contrarian-mode" onchange="fetchResearchData()">
+            <option value="price_only">Price Only (&lt;50c)</option>
+            <option value="vs_trend">vs Trend</option>
+            <option value="vs_ofi">vs Order Flow</option>
+            <option value="vs_both" selected>vs Both (Trend+OFI)</option>
+          </select>
+        </label>
+        <label style="display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" id="research-asymmetry" onchange="fetchResearchData()">
+          Asymmetric Book
+        </label>
+        <label style="display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" id="research-new-wallet" onchange="fetchResearchData()">
+          New Wallet
+        </label>
+        <button class="refresh-btn" onclick="fetchResearchData()" id="research-refresh-btn">Refresh</button>
+        <button class="backfill-btn" onclick="triggerBackfill()" id="backfill-btn">Trigger Backfill</button>
+      </div>
+
+      <!-- Research Stats Grid -->
+      <div class="research-stats-grid">
+        <div class="research-stat-card highlight">
+          <div class="research-stat-label">Correlation (r)</div>
+          <div class="research-stat-value" id="research-correlation">--</div>
+          <div class="research-stat-subtitle" id="research-ci">CI: --</div>
+        </div>
+        <div class="research-stat-card">
+          <div class="research-stat-label">Win Rate</div>
+          <div class="research-stat-value" id="research-win-rate">--</div>
+          <div class="research-stat-subtitle">vs 50% baseline</div>
+        </div>
+        <div class="research-stat-card">
+          <div class="research-stat-label">Events</div>
+          <div class="research-stat-value" id="research-sample-size">--</div>
+          <div class="research-stat-subtitle" id="research-markets-count">-- markets</div>
+        </div>
+        <div class="research-stat-card">
+          <div class="research-stat-label">P-Value</div>
+          <div class="research-stat-value" id="research-p-value">--</div>
+          <div class="research-stat-subtitle">significance</div>
+        </div>
+        <div class="research-stat-card">
+          <div class="research-stat-label">Lift</div>
+          <div class="research-stat-value" id="research-lift">--</div>
+          <div class="research-stat-subtitle">vs random</div>
+        </div>
+        <div class="research-stat-card">
+          <div class="research-stat-label">AUC</div>
+          <div class="research-stat-value" id="research-auc">--</div>
+          <div class="research-stat-subtitle">discriminative power</div>
+        </div>
+      </div>
+
+      <!-- Time-Split Evaluation -->
+      <div class="time-split-section" id="time-split-section" style="display: none;">
+        <div class="section-title" style="margin-bottom: 12px;">Train/Validate/Test Split (60/20/20)</div>
+        <div class="time-split-grid">
+          <div class="time-split-card">
+            <div class="time-split-label">TRAIN</div>
+            <div class="time-split-auc" id="train-auc">--</div>
+            <div class="time-split-meta">n=<span id="train-n">--</span>, win=<span id="train-win">--</span></div>
+          </div>
+          <div class="time-split-card">
+            <div class="time-split-label">VALIDATE</div>
+            <div class="time-split-auc" id="validate-auc">--</div>
+            <div class="time-split-meta">n=<span id="validate-n">--</span>, win=<span id="validate-win">--</span></div>
+          </div>
+          <div class="time-split-card">
+            <div class="time-split-label">TEST</div>
+            <div class="time-split-auc" id="test-auc">--</div>
+            <div class="time-split-meta">n=<span id="test-n">--</span>, win=<span id="test-win">--</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rolling Correlation Chart -->
+      <div class="research-chart-container">
+        <div class="research-chart-title">Rolling 7-Day Correlation Over Time</div>
+        <div class="research-chart" id="research-chart">
+          <div class="loading">
+            <div class="spinner"></div>
+            Loading chart data...
+          </div>
+        </div>
+        <div class="chart-axis" id="chart-axis">
+          <span>--</span>
+          <span>--</span>
+        </div>
+      </div>
+
+      <!-- Recent Contrarian Signals Table -->
+      <section>
+        <div class="section-header">
+          <div class="section-title">Recent Contrarian Events</div>
+          <div class="section-count" id="research-signals-count">0 events</div>
+        </div>
+        <div id="research-signals-table">
+          <div class="loading">
+            <div class="spinner"></div>
+            Loading contrarian events...
+          </div>
+        </div>
+      </section>
+
+      <!-- Model Report Section -->
+      <section id="model-report-section" style="display: none;">
+        <div class="section-header">
+          <div class="section-title">Logistic Regression Model Report</div>
+        </div>
+        <div class="model-report-content" id="model-report-content">
+          <div class="loading">
+            <div class="spinner"></div>
+            Loading model report...
+          </div>
+        </div>
+      </section>
+
+      <!-- Methodology Notes -->
+      <div class="methodology-box">
+        <div class="methodology-title">Methodology</div>
+        <ul class="methodology-list">
+          <li><strong>Contrarian (price_only)</strong>: BUY on outcome priced below 50 cents</li>
+          <li><strong>Contrarian (vs_trend)</strong>: BUY against recent 30m price trend direction</li>
+          <li><strong>Contrarian (vs_ofi)</strong>: BUY against recent order flow imbalance</li>
+          <li><strong>Contrarian (vs_both)</strong>: BUY against BOTH trend AND order flow (strictest)</li>
+          <li><strong>Tail trade</strong>: Trade size in top 1% (q99) for that market</li>
+          <li><strong>Asymmetric book</strong>: |imbalance| &ge; 0.7 and thin opposite ratio &le; 0.3</li>
+          <li><strong>New wallet</strong>: First seen on-chain within last 7 days</li>
+          <li><strong>Time-split</strong>: Train on first 60%, validate on next 20%, test on last 20% (temporal)</li>
+          <li><strong>AUC</strong>: Area under ROC curve; 0.5 = random, 1.0 = perfect discrimination</li>
+        </ul>
+      </div>
+
+    </div><!-- End Research Tab -->
+
   </div>
 
   <script>
     const API_BASE = '';
     const REFRESH_INTERVAL = 5000;
+
+    // Tab switching
+    function switchTab(tabId) {
+      // Update tab buttons
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`).classList.add('active');
+
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById(`${tabId}-tab`).classList.add('active');
+
+      // Fetch research data when switching to research tab
+      if (tabId === 'research') {
+        fetchResearchData();
+      }
+    }
+
+    // Research data state
+    let researchData = {
+      correlation: null,
+      signals: [],
+      rollingData: [],
+      modelReport: null
+    };
+
+    // Build query params from current filter state
+    function getResearchQueryParams() {
+      const lookback = document.getElementById('research-lookback').value;
+      const minSize = document.getElementById('research-min-size').value;
+      const windowMin = document.getElementById('research-window').value;
+      const contrarianMode = document.getElementById('research-contrarian-mode').value;
+      const requireAsymmetry = document.getElementById('research-asymmetry').checked;
+      const requireNewWallet = document.getElementById('research-new-wallet').checked;
+
+      return `days=${lookback}&minSize=${minSize}&windowMinutes=${windowMin}&contrarianMode=${contrarianMode}&requireAsymmetry=${requireAsymmetry}&requireNewWallet=${requireNewWallet}`;
+    }
+
+    async function triggerBackfill() {
+      const backfillBtn = document.getElementById('backfill-btn');
+      backfillBtn.disabled = true;
+      backfillBtn.textContent = 'Starting...';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/analysis/backfill`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ days: 30, windowMinutes: 120 })
+        });
+
+        if (response.ok) {
+          showBackfillBanner('Backfill started! This may take several minutes...', 'running');
+          pollBackfillStatus();
+        } else {
+          const error = await response.json();
+          showBackfillBanner(`Error: ${error.error || 'Failed to start backfill'}`, 'error');
+        }
+      } catch (error) {
+        console.error('Failed to trigger backfill:', error);
+        showBackfillBanner('Failed to start backfill', 'error');
+      } finally {
+        backfillBtn.disabled = false;
+        backfillBtn.textContent = 'Trigger Backfill';
+      }
+    }
+
+    function showBackfillBanner(message, status) {
+      const banner = document.getElementById('backfill-status-banner');
+      const textEl = document.getElementById('backfill-status-text');
+
+      banner.style.display = 'flex';
+      banner.className = `backfill-banner ${status}`;
+      textEl.textContent = message;
+    }
+
+    async function pollBackfillStatus() {
+      try {
+        const response = await fetch(`${API_BASE}/api/analysis/backfill/status`);
+        const status = await response.json();
+
+        if (status.isRunning) {
+          const progress = status.itemsTotal
+            ? `(${status.itemsProcessed}/${status.itemsTotal})`
+            : `(${status.itemsProcessed} processed)`;
+          document.getElementById('backfill-progress').textContent = progress;
+          setTimeout(pollBackfillStatus, 3000);
+        } else if (status.status === 'completed') {
+          showBackfillBanner('Backfill completed successfully!', 'completed');
+          document.getElementById('backfill-progress').textContent = '';
+          setTimeout(() => {
+            document.getElementById('backfill-status-banner').style.display = 'none';
+            fetchResearchData();
+          }, 3000);
+        } else if (status.errorMessage) {
+          showBackfillBanner(`Backfill failed: ${status.errorMessage}`, 'error');
+          document.getElementById('backfill-progress').textContent = '';
+        }
+      } catch (error) {
+        console.error('Failed to poll backfill status:', error);
+      }
+    }
+
+    async function fetchResearchData() {
+      const refreshBtn = document.getElementById('research-refresh-btn');
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = 'Loading...';
+
+      const queryParams = getResearchQueryParams();
+
+      try {
+        // Fetch correlation summary
+        const summaryResponse = await fetch(`${API_BASE}/api/analysis/summary?${queryParams}`);
+        const summary = await summaryResponse.json();
+
+        // Update stats
+        updateResearchStats(summary);
+
+        // Fetch recent signals
+        const signalsResponse = await fetch(`${API_BASE}/api/analysis/signals?${queryParams}&limit=20`);
+        const signalsData = await signalsResponse.json();
+        researchData.signals = signalsData.signals || [];
+        renderResearchSignals();
+
+        // Fetch rolling correlation data for chart
+        const rollingResponse = await fetch(`${API_BASE}/api/analysis/rolling?${queryParams}&rollingWindow=7`);
+        const rollingData = await rollingResponse.json();
+        researchData.rollingData = rollingData.dataPoints || [];
+        renderResearchChart();
+
+        // Fetch model report
+        const modelResponse = await fetch(`${API_BASE}/api/analysis/model?${queryParams}`);
+        const modelData = await modelResponse.json();
+        researchData.modelReport = modelData.report || null;
+        renderModelReport();
+
+      } catch (error) {
+        console.error('Failed to fetch research data:', error);
+        document.getElementById('research-correlation').textContent = 'Error';
+        document.getElementById('research-win-rate').textContent = '--';
+        document.getElementById('research-sample-size').textContent = '--';
+        document.getElementById('research-p-value').textContent = '--';
+        document.getElementById('research-lift').textContent = '--';
+        document.getElementById('research-auc').textContent = '--';
+
+        document.getElementById('research-signals-table').innerHTML = `
+          <div class="empty-state">Failed to load research data. Run backfill first or check API.</div>
+        `;
+
+        document.getElementById('research-chart').innerHTML = `
+          <div class="empty-state">No chart data available</div>
+        `;
+      } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = 'Refresh';
+      }
+    }
+
+    function updateResearchStats(summary) {
+      // Correlation
+      const correlation = summary.correlation ?? 0;
+      const correlationEl = document.getElementById('research-correlation');
+      correlationEl.textContent = correlation >= 0 ? `+${correlation.toFixed(3)}` : correlation.toFixed(3);
+      correlationEl.className = `research-stat-value ${correlation > 0 ? 'positive' : correlation < 0 ? 'negative' : ''}`;
+
+      // Confidence interval
+      const ci = summary.confidenceInterval || [0, 0];
+      document.getElementById('research-ci').textContent = `CI: [${ci[0].toFixed(3)}, ${ci[1].toFixed(3)}]`;
+
+      // Win rate - use signalWinRate from new API
+      const winRate = summary.signalWinRate ?? summary.contrarianWinRate ?? 0;
+      const winRateEl = document.getElementById('research-win-rate');
+      winRateEl.textContent = `${(winRate * 100).toFixed(1)}%`;
+      winRateEl.className = `research-stat-value ${winRate > 0.5 ? 'positive' : winRate < 0.5 ? 'negative' : ''}`;
+
+      // Sample size - use totalEvents
+      const totalEvents = summary.totalEvents ?? summary.totalMarkets ?? 0;
+      document.getElementById('research-sample-size').textContent = totalEvents.toLocaleString();
+      document.getElementById('research-markets-count').textContent = `${summary.marketsWithSignals ?? summary.totalMarkets ?? 0} markets`;
+
+      // P-value
+      const pValue = summary.pValue ?? 1;
+      const pValueEl = document.getElementById('research-p-value');
+      if (pValue < 0.001) {
+        pValueEl.textContent = '<0.001';
+      } else if (pValue < 0.01) {
+        pValueEl.textContent = '<0.01';
+      } else if (pValue < 0.05) {
+        pValueEl.textContent = '<0.05';
+      } else {
+        pValueEl.textContent = pValue.toFixed(3);
+      }
+      pValueEl.className = `research-stat-value ${pValue < 0.05 ? 'positive' : ''}`;
+
+      // Lift
+      const lift = summary.lift ?? 0;
+      const liftEl = document.getElementById('research-lift');
+      liftEl.textContent = lift >= 0 ? `+${(lift * 100).toFixed(1)}%` : `${(lift * 100).toFixed(1)}%`;
+      liftEl.className = `research-stat-value ${lift > 0 ? 'positive' : lift < 0 ? 'negative' : ''}`;
+
+      // AUC
+      const auc = summary.auc ?? null;
+      const aucEl = document.getElementById('research-auc');
+      aucEl.textContent = auc !== null ? auc.toFixed(3) : '--';
+      aucEl.className = `research-stat-value ${auc && auc > 0.55 ? 'positive' : ''}`;
+
+      // Update card borders based on significance
+      const correlationCard = correlationEl.closest('.research-stat-card');
+      correlationCard.classList.remove('positive', 'negative');
+      if (pValue < 0.05) {
+        correlationCard.classList.add(correlation > 0 ? 'positive' : 'negative');
+      }
+
+      // Time-split evaluation
+      const timeSplitSection = document.getElementById('time-split-section');
+      if (summary.timeSplit) {
+        timeSplitSection.style.display = 'block';
+        const ts = summary.timeSplit;
+
+        document.getElementById('train-auc').textContent = ts.train.auc?.toFixed(3) ?? '--';
+        document.getElementById('train-n').textContent = ts.train.n;
+        document.getElementById('train-win').textContent = `${(ts.train.winRate * 100).toFixed(0)}%`;
+
+        document.getElementById('validate-auc').textContent = ts.validate.auc?.toFixed(3) ?? '--';
+        document.getElementById('validate-n').textContent = ts.validate.n;
+        document.getElementById('validate-win').textContent = `${(ts.validate.winRate * 100).toFixed(0)}%`;
+
+        document.getElementById('test-auc').textContent = ts.test.auc?.toFixed(3) ?? '--';
+        document.getElementById('test-n').textContent = ts.test.n;
+        document.getElementById('test-win').textContent = `${(ts.test.winRate * 100).toFixed(0)}%`;
+      } else {
+        timeSplitSection.style.display = 'none';
+      }
+    }
+
+    function renderResearchSignals() {
+      const signals = researchData.signals;
+      document.getElementById('research-signals-count').textContent = `${signals.length} events`;
+
+      if (signals.length === 0) {
+        document.getElementById('research-signals-table').innerHTML = `
+          <div class="empty-state">No contrarian events found. Run backfill to populate data.</div>
+        `;
+        return;
+      }
+
+      const rows = signals.map(signal => {
+        const resultClass = signal.result === 'won' ? 'won' : signal.result === 'lost' ? 'lost' : 'pending';
+        const resultText = signal.result === 'won' ? 'WON' : signal.result === 'lost' ? 'LOST' : 'PENDING';
+
+        // Build badges for contrarian flags
+        let badges = '';
+        if (signal.isPriceContrarian) badges += '<span class="contrarian-badge price">P</span>';
+        if (signal.isAgainstTrend) badges += '<span class="contrarian-badge trend">T</span>';
+        if (signal.isAgainstOfi) badges += '<span class="contrarian-badge ofi">O</span>';
+        if (signal.isAsymmetricBook) badges += '<span class="contrarian-badge book">B</span>';
+        if (signal.isNewWallet) badges += '<span class="contrarian-badge wallet">W</span>';
+        if (signal.sizePercentile && signal.sizePercentile >= 99) badges += '<span class="contrarian-badge tail">99</span>';
+
+        return `
+          <tr>
+            <td class="question-cell" title="${escapeHtml(signal.question)}">
+              ${signal.polymarketUrl
+                ? `<a href="${signal.polymarketUrl}" target="_blank" style="color: #58a6ff; text-decoration: none;">${truncateQuestion(signal.question, 35)}</a>`
+                : truncateQuestion(signal.question, 35)
+              }
+            </td>
+            <td>${signal.outcome || '--'}</td>
+            <td>${signal.price ? (signal.price * 100).toFixed(1) + '\u00a2' : '--'}</td>
+            <td>${signal.sizeUsd ? '$' + Math.round(signal.sizeUsd).toLocaleString() : '--'}</td>
+            <td>${signal.minutesBeforeClose ? Math.round(signal.minutesBeforeClose) + 'm' : '--'}</td>
+            <td>${badges || '--'}</td>
+            <td><span class="result-badge ${resultClass}">${resultText}</span></td>
+          </tr>
+        `;
+      }).join('');
+
+      document.getElementById('research-signals-table').innerHTML = `
+        <table class="contrarian-signals-table">
+          <thead>
+            <tr>
+              <th>Market</th>
+              <th>Outcome</th>
+              <th>Price</th>
+              <th>Size</th>
+              <th>Before Close</th>
+              <th>Flags</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div style="padding: 8px 16px; font-size: 11px; color: #6e7681;">
+          Flags: <span class="contrarian-badge price">P</span>=Price&lt;50c
+          <span class="contrarian-badge trend">T</span>=vs Trend
+          <span class="contrarian-badge ofi">O</span>=vs OFI
+          <span class="contrarian-badge book">B</span>=Asymmetric Book
+          <span class="contrarian-badge wallet">W</span>=New Wallet
+          <span class="contrarian-badge tail">99</span>=q99 Size
+        </div>
+      `;
+    }
+
+    function renderModelReport() {
+      const report = researchData.modelReport;
+      const section = document.getElementById('model-report-section');
+
+      if (!report) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'block';
+
+      // Build feature importance bars
+      const sortedFeatures = Object.entries(report.featureImportance)
+        .sort((a, b) => b[1] - a[1]);
+
+      const featureBars = sortedFeatures.map(([name, importance]) => {
+        const displayName = name.replace(/_/g, ' ').replace(/is /g, '');
+        return `
+          <div class="feature-bar">
+            <span class="feature-name">${displayName}</span>
+            <div class="feature-bar-track">
+              <div class="feature-bar-fill" style="width: ${(importance * 100).toFixed(0)}%"></div>
+            </div>
+            <span class="feature-value">${(importance * 100).toFixed(0)}%</span>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('model-report-content').innerHTML = `
+        <div class="model-metrics-grid">
+          <div class="model-metric-card">
+            <div class="model-metric-label">Train AUC</div>
+            <div class="model-metric-value">${report.trainAuc.toFixed(3)}</div>
+          </div>
+          <div class="model-metric-card">
+            <div class="model-metric-label">Validate AUC</div>
+            <div class="model-metric-value">${report.validateAuc.toFixed(3)}</div>
+          </div>
+          <div class="model-metric-card">
+            <div class="model-metric-label">Test AUC</div>
+            <div class="model-metric-value">${report.testAuc.toFixed(3)}</div>
+          </div>
+        </div>
+        <div class="section-title" style="margin-bottom: 12px; font-size: 14px;">Feature Importance</div>
+        <div class="feature-importance-grid">
+          ${featureBars}
+        </div>
+      `;
+    }
+
+    function renderResearchChart() {
+      const dataPoints = researchData.rollingData;
+
+      if (!dataPoints || dataPoints.length === 0) {
+        document.getElementById('research-chart').innerHTML = `
+          <div class="empty-state" style="height: 100%; display: flex; align-items: center; justify-content: center;">
+            No rolling data available
+          </div>
+        `;
+        document.getElementById('chart-axis').innerHTML = '<span>--</span><span>--</span>';
+        return;
+      }
+
+      // Find min/max for scaling
+      const values = dataPoints.map(d => d.correlation);
+      const maxAbs = Math.max(Math.abs(Math.min(...values)), Math.abs(Math.max(...values)), 0.3);
+      const chartHeight = 200;
+      const midLine = chartHeight / 2;
+
+      const bars = dataPoints.map((point, i) => {
+        const correlation = point.correlation;
+        const heightPercent = Math.abs(correlation) / maxAbs * 50; // 50% of chart height max
+        const isPositive = correlation >= 0;
+        const barClass = isPositive ? 'positive' : 'negative';
+
+        // Calculate position: positive goes up from middle, negative goes down
+        const height = heightPercent;
+        const bottom = isPositive ? 50 : (50 - heightPercent);
+
+        const dateStr = new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const tooltip = `${dateStr}: r=${correlation.toFixed(3)}, n=${point.sampleSize}`;
+
+        return `
+          <div class="chart-bar ${barClass}"
+               style="height: ${height}%; position: absolute; bottom: ${bottom}%; left: ${(i / dataPoints.length * 100)}%; width: ${(100 / dataPoints.length) - 1}%;"
+               title="${tooltip}">
+            <span class="chart-bar-tooltip">${tooltip}</span>
+          </div>
+        `;
+      }).join('');
+
+      // Add a zero line
+      const zeroLine = `<div style="position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed #30363d;"></div>`;
+
+      document.getElementById('research-chart').innerHTML = `
+        <div style="position: relative; height: 100%;">
+          ${zeroLine}
+          ${bars}
+        </div>
+      `;
+
+      // Update axis labels
+      const firstDate = new Date(dataPoints[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const lastDate = new Date(dataPoints[dataPoints.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      document.getElementById('chart-axis').innerHTML = `<span>${firstDate}</span><span>${lastDate}</span>`;
+    }
+
+    // Pagination state
+    const paginationState = {
+      closingMarkets: { page: 1, itemsPerPage: 3 },
+      opportunities: { page: 1, itemsPerPage: 10 }
+    };
+
+    // Store full data for pagination
+    let fullData = {
+      closingMarkets: [],
+      opportunities: []
+    };
+
+    // Pagination helper functions
+    function paginateData(data, page, itemsPerPage) {
+      const start = (page - 1) * itemsPerPage;
+      const end = start + itemsPerPage;
+      return {
+        items: data.slice(start, end),
+        totalPages: Math.ceil(data.length / itemsPerPage),
+        currentPage: page,
+        totalItems: data.length
+      };
+    }
+
+    function renderPaginationControls(currentPage, totalPages, totalItems, onPageChangeFn) {
+      if (totalPages <= 1) return '';
+
+      const prevDisabled = currentPage <= 1 ? 'disabled' : '';
+      const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
+
+      return `
+        <div class="pagination">
+          <button class="pagination-btn" ${prevDisabled} onclick="${onPageChangeFn}(${currentPage - 1})">
+            ← Prev
+          </button>
+          <span class="pagination-info">
+            Page <span class="current-page">${currentPage}</span> of ${totalPages}
+            (${totalItems} items)
+          </span>
+          <button class="pagination-btn" ${nextDisabled} onclick="${onPageChangeFn}(${currentPage + 1})">
+            Next →
+          </button>
+        </div>
+      `;
+    }
 
     function formatCurrency(value) {
       const num = parseFloat(value) || 0;
@@ -863,69 +2127,93 @@
       return 'wallet-established';
     }
 
+    // Pagination: Set page for opportunities
+    function setOpportunitiesPage(page) {
+      paginationState.opportunities.page = page;
+      renderOpportunities();
+    }
+
     async function fetchOpportunities() {
       try {
-        const response = await fetch(`${API_BASE}/api/opportunities?limit=15`);
+        // Fetch more for pagination
+        const response = await fetch(`${API_BASE}/api/opportunities?limit=50`);
         const data = await response.json();
-        const opportunities = data.opportunities || [];
+        fullData.opportunities = data.opportunities || [];
 
-        document.getElementById('opportunitiesCount').textContent = `${opportunities.length} opportunities`;
-
-        if (opportunities.length === 0) {
-          document.getElementById('opportunitiesTable').innerHTML = `
-            <div class="empty-state">No opportunities detected yet. Waiting for market data...</div>
-          `;
-          return;
+        // Reset page if current page exceeds total pages
+        const totalPages = Math.ceil(fullData.opportunities.length / paginationState.opportunities.itemsPerPage);
+        if (paginationState.opportunities.page > totalPages && totalPages > 0) {
+          paginationState.opportunities.page = 1;
         }
 
-        const rows = opportunities.map(opp => `
-          <tr>
-            <td class="question-cell" title="${escapeHtml(opp.question)}">
-              ${truncateQuestion(opp.question, 35)}
-            </td>
-            <td class="${getDaysClass(opp.daysUntilClose)}">
-              ${formatDays(opp.daysUntilClose)}
-            </td>
-            <td>${opp.currentPrice !== null ? formatPrice(opp.currentPrice) : '-'}</td>
-            <td><span class="score ${getScoreClass(opp.anomalyScore)}">${formatScore(opp.anomalyScore)}</span></td>
-            <td><span class="score ${getScoreClass(opp.compositeScore)}">${formatScore(opp.compositeScore)}</span></td>
-            <td>${getSignalBadge(opp.signalStrength)}</td>
-            <td><span class="trigger-amount ${getTriggerAmountClass(opp.triggerTradeUsd)}">${formatTriggerAmount(opp.triggerTradeUsd)}</span></td>
-            <td><span class="${getWalletAgeClass(opp.triggerWalletAgeDays)}">${opp.triggerWalletAge || '-'}</span></td>
-            <td>${opp.triggerPolygonscanUrl
-              ? `<a href="${opp.triggerPolygonscanUrl}" target="_blank" rel="noopener" class="link-icon" title="View transaction on Polygonscan">Tx &#8599;</a>`
-              : '-'}</td>
-            <td>${opp.polymarketUrl
-              ? `<a href="${opp.polymarketUrl}" target="_blank" rel="noopener" class="link-icon" title="View on Polymarket">&#8599;</a>`
-              : '-'}</td>
-          </tr>
-        `).join('');
-
-        document.getElementById('opportunitiesTable').innerHTML = `
-          <table>
-            <thead>
-              <tr>
-                <th>Question</th>
-                <th>Closes</th>
-                <th>Price</th>
-                <th>Anomaly</th>
-                <th>Composite</th>
-                <th>Signal</th>
-                <th>Trigger $</th>
-                <th>Wallet Age</th>
-                <th>Tx</th>
-                <th>Link</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        `;
+        renderOpportunities();
       } catch (error) {
         console.error('Failed to fetch opportunities:', error);
         document.getElementById('opportunitiesTable').innerHTML = `
           <div class="empty-state">Failed to load opportunities</div>
         `;
       }
+    }
+
+    function renderOpportunities() {
+      const opportunities = fullData.opportunities;
+      const { page, itemsPerPage } = paginationState.opportunities;
+      const { items, totalPages, totalItems } = paginateData(opportunities, page, itemsPerPage);
+
+      document.getElementById('opportunitiesCount').textContent = `${totalItems} opportunities`;
+
+      if (opportunities.length === 0) {
+        document.getElementById('opportunitiesTable').innerHTML = `
+          <div class="empty-state">No opportunities detected yet. Waiting for market data...</div>
+        `;
+        return;
+      }
+
+      const rows = items.map(opp => `
+        <tr>
+          <td class="question-cell" title="${escapeHtml(opp.question)}">
+            ${truncateQuestion(opp.question, 35)}
+          </td>
+          <td class="${getDaysClass(opp.daysUntilClose)}">
+            ${formatDays(opp.daysUntilClose)}
+          </td>
+          <td>${opp.currentPrice !== null ? formatPrice(opp.currentPrice) : '-'}</td>
+          <td><span class="score ${getScoreClass(opp.anomalyScore)}">${formatScore(opp.anomalyScore)}</span></td>
+          <td><span class="score ${getScoreClass(opp.compositeScore)}">${formatScore(opp.compositeScore)}</span></td>
+          <td>${getSignalBadge(opp.signalStrength)}</td>
+          <td><span class="trigger-amount ${getTriggerAmountClass(opp.triggerTradeUsd)}">${formatTriggerAmount(opp.triggerTradeUsd)}</span></td>
+          <td><span class="${getWalletAgeClass(opp.triggerWalletAgeDays)}">${opp.triggerWalletAge || '-'}</span></td>
+          <td>${opp.triggerPolygonscanUrl
+            ? `<a href="${opp.triggerPolygonscanUrl}" target="_blank" rel="noopener" class="link-icon" title="View transaction on Polygonscan">Tx &#8599;</a>`
+            : '-'}</td>
+          <td>${opp.polymarketUrl
+            ? `<a href="${opp.polymarketUrl}" target="_blank" rel="noopener" class="link-icon" title="View on Polymarket">&#8599;</a>`
+            : '-'}</td>
+        </tr>
+      `).join('');
+
+      const paginationHtml = renderPaginationControls(page, totalPages, totalItems, 'setOpportunitiesPage');
+
+      document.getElementById('opportunitiesTable').innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Question</th>
+              <th>Closes</th>
+              <th>Price</th>
+              <th>Anomaly</th>
+              <th>Composite</th>
+              <th>Signal</th>
+              <th>Trigger $</th>
+              <th>Wallet Age</th>
+              <th>Tx</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${paginationHtml}
+      `;
     }
 
     async function fetchHoldings() {
@@ -1007,8 +2295,10 @@
     }
 
     function formatActivityCurrency(n) {
-      if (n >= 1000) return `$${(n/1000).toFixed(1)}K`;
-      return `$${n.toFixed(0)}`;
+      const num = typeof n === 'string' ? parseFloat(n) : n;
+      if (isNaN(num)) return '$0';
+      if (num >= 1000) return `$${(num/1000).toFixed(1)}K`;
+      return `$${num.toFixed(0)}`;
     }
 
     function truncateText(str, len) {
@@ -1063,7 +2353,10 @@
                   <a href="${act.profileUrl}" target="_blank" class="activity-user">${escapeHtml(username)}</a>
                   <span class="${actionClass}">${escapeHtml(displaySide)}</span>
                   <span class="activity-for">for</span>
-                  <span class="activity-market" title="${escapeHtml(act.question)}">${truncateText(act.question, 30)}</span>
+                  ${act.polymarketUrl
+                    ? `<a href="${act.polymarketUrl}" target="_blank" class="activity-market" title="${escapeHtml(act.question)}">${truncateText(act.question, 30)}</a>`
+                    : `<span class="activity-market" title="${escapeHtml(act.question)}">${truncateText(act.question, 30)}</span>`
+                  }
                   <span class="activity-at">at ${formatActivityPrice(act.price)}</span>
                   <span class="activity-total">(${total})</span>
                 </div>
@@ -1154,53 +2447,106 @@
       return `${(minutes / 1440).toFixed(1)}d`;
     }
 
-    function getClosingTimeClass(minutes) {
-      if (minutes <= 60) return 'days-urgent';
-      if (minutes <= 360) return 'days-soon';
-      return 'days-normal';
+    // Pagination: Set page for closing markets
+    function setClosingMarketsPage(page) {
+      paginationState.closingMarkets.page = page;
+      renderClosingMarkets();
     }
 
     async function fetchClosingMarkets() {
       try {
-        const response = await fetch(`${API_BASE}/api/markets/closing-soon?minutes=1440&limit=10`);
+        // Fetch more events for pagination
+        const response = await fetch(`${API_BASE}/api/markets/closing?limit=10`);
         const data = await response.json();
-        const markets = data.markets || [];
+        fullData.closingMarkets = data.markets || [];
 
-        document.getElementById('closingMarketCount').textContent = `${markets.length} markets`;
-
-        if (markets.length === 0) {
-          document.getElementById('closingMarketsContainer').innerHTML = `
-            <div class="no-activity">No non-sports markets closing within 7 days</div>
-          `;
-          return;
+        // Reset page if current page exceeds total pages
+        const totalPages = Math.ceil(fullData.closingMarkets.length / paginationState.closingMarkets.itemsPerPage);
+        if (paginationState.closingMarkets.page > totalPages && totalPages > 0) {
+          paginationState.closingMarkets.page = 1;
         }
 
-        const rows = markets.map(market => {
-          const timeClass = getClosingTimeClass(market.timeToCloseMinutes);
-          const timeFormatted = formatMinutesToReadable(market.timeToCloseMinutes);
-          const category = market.category || 'Unknown';
+        renderClosingMarkets();
+      } catch (error) {
+        console.error('Failed to fetch closing markets:', error);
+        document.getElementById('closingMarketsGrid').innerHTML = `
+          <div class="no-activity">Failed to load closing markets</div>
+        `;
+      }
+    }
+
+    function renderClosingMarkets() {
+      const events = fullData.closingMarkets;
+      const { page, itemsPerPage } = paginationState.closingMarkets;
+      const { items, totalPages, totalItems } = paginateData(events, page, itemsPerPage);
+
+      document.getElementById('closingMarketsCount').textContent = `${totalItems} events`;
+
+      if (events.length === 0) {
+        document.getElementById('closingMarketsGrid').innerHTML = `
+          <div class="no-activity">No markets closing soon</div>
+        `;
+        return;
+      }
+
+      const cards = items.map(event => {
+        const timerClass = event.minutesUntilClose <= 10 ? 'urgent' : '';
+        const timerText = formatMinutesToReadable(event.minutesUntilClose);
+
+        // Build markets HTML - show each outcome and its buys
+        const marketsHtml = event.markets.map(({ market, recentBuys }) => {
+          // Extract just the outcome from the question (after last ":")
+          const outcomeText = market.question.includes(':')
+            ? market.question.split(':').pop().trim()
+            : market.question;
+
+          const buysHtml = recentBuys.length > 0
+            ? recentBuys.map(buy => {
+                const timeAgo = formatTimeAgo(buy.timestamp);
+                const username = buy.username || shortenAddress(buy.walletAddress);
+                return `
+                  <div class="closing-buy-item">
+                    <span class="closing-buy-amount">${formatActivityCurrency(buy.sizeUsd)}</span>
+                    <span class="closing-buy-details">
+                      <a href="${buy.profileUrl}" target="_blank">${escapeHtml(username)}</a>
+                      @ ${formatActivityPrice(buy.price)}
+                      <span class="closing-buy-time">${timeAgo}</span>
+                    </span>
+                  </div>
+                `;
+              }).join('')
+            : '<div class="no-buys">No recent buys</div>';
 
           return `
-            <div class="closing-market-row">
-              <div class="closing-market-info">
-                <div class="closing-market-question" title="${escapeHtml(market.question)}">${escapeHtml(market.question)}</div>
-                <div class="closing-market-category">${escapeHtml(category)}</div>
-              </div>
-              <div class="closing-market-time ${timeClass}">${timeFormatted}</div>
-              <div class="closing-market-link">
-                <a href="https://polymarket.com/event/${market.conditionId}" target="_blank" class="link-icon" title="View on Polymarket">&#8599;</a>
-              </div>
+            <div class="closing-market-outcome">
+              <div class="outcome-name">${escapeHtml(outcomeText)}</div>
+              <div class="outcome-buys">${buysHtml}</div>
             </div>
           `;
         }).join('');
 
-        document.getElementById('closingMarketsContainer').innerHTML = rows;
-      } catch (error) {
-        console.error('Failed to fetch closing markets:', error);
-        document.getElementById('closingMarketsContainer').innerHTML = `
-          <div class="no-activity">Failed to load markets</div>
+        return `
+          <div class="closing-market-card">
+            <div class="closing-market-header">
+              <div class="closing-market-question">
+                ${event.polymarketEventUrl
+                  ? `<a href="${event.polymarketEventUrl}" target="_blank">${escapeHtml(event.eventTitle)}</a>`
+                  : escapeHtml(event.eventTitle)
+                }
+              </div>
+              <div class="closing-market-timer ${timerClass}">
+                Closes in ${timerText}
+              </div>
+            </div>
+            <div class="closing-market-outcomes">
+              ${marketsHtml}
+            </div>
+          </div>
         `;
-      }
+      }).join('');
+
+      const paginationHtml = renderPaginationControls(page, totalPages, totalItems, 'setClosingMarketsPage');
+      document.getElementById('closingMarketsGrid').innerHTML = cards + paginationHtml;
     }
 
     function updateTimestamp() {
@@ -1229,11 +2575,11 @@
     // Refresh activity every 5 seconds (near real-time)
     setInterval(fetchActivity, 5000);
 
-    // Refresh top bets every 10 seconds
-    setInterval(fetchTopBets, 10000);
+    // Refresh closing markets every 5 seconds (real-time for urgent markets)
+    setInterval(fetchClosingMarkets, 5000);
 
-    // Refresh closing markets every 30 seconds
-    setInterval(fetchClosingMarkets, 30000);
+    // Refresh top bets every 2 minutes
+    setInterval(fetchTopBets, 120000);
   </script>
 </body>
 </html>
