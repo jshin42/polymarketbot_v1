@@ -167,11 +167,13 @@ export class BackfillService {
 
     try {
       // Step 1: Fetch resolved markets from Gamma API
-      logger.info({ days: config.days }, 'Starting market backfill');
+      logger.info({ days: config.days, config }, 'Starting market backfill - fetching resolved markets');
       const markets = await this.fetchResolvedMarkets(config.days);
       result.marketsFound = markets.length;
+      logger.info({ marketsFound: markets.length }, 'Fetched markets, updating job progress');
 
       await this.updateJobProgress(markets.length, 0);
+      logger.info({ marketsFound: markets.length }, 'Job progress updated, starting market processing');
 
       // Step 2: Process each market
       for (let i = 0; i < markets.length; i++) {
@@ -253,18 +255,21 @@ export class BackfillService {
 
     while (hasMore) {
       const url = `${GAMMA_API_BASE}/markets?closed=true&end_date_min=${minEndDateStr}&limit=${limit}&offset=${offset}`;
-      logger.debug({ url }, 'Fetching markets from Gamma API');
+      logger.info({ url, offset }, 'Fetching markets from Gamma API');
 
       try {
         const response = await fetch(url);
+        logger.info({ status: response.status, ok: response.ok }, 'Gamma API response received');
         if (!response.ok) {
           throw new Error(`Gamma API error: ${response.status}`);
         }
 
         const data = await response.json() as GammaMarket[];
+        logger.info({ dataLength: data.length }, 'Parsed Gamma API response');
 
         if (data.length === 0) {
           hasMore = false;
+          logger.info('No more markets to fetch');
         } else {
           // Filter to only resolved markets with outcome prices
           const resolved = data.filter(m => {
@@ -272,31 +277,36 @@ export class BackfillService {
             try {
               const prices = JSON.parse(m.outcomePrices);
               // Market is resolved if one outcome is 1 and other is 0
+              // Prices may be strings or numbers from the API
+              const p0 = String(prices[0]);
+              const p1 = String(prices[1]);
               return prices.length === 2 &&
-                ((prices[0] === 1 && prices[1] === 0) ||
-                 (prices[0] === 0 && prices[1] === 1));
+                ((p0 === '1' && p1 === '0') ||
+                 (p0 === '0' && p1 === '1'));
             } catch {
               return false;
             }
           });
 
+          logger.info({ resolvedCount: resolved.length, totalDataCount: data.length }, 'Filtered resolved markets');
           markets.push(...resolved);
           offset += limit;
 
           if (data.length < limit) {
             hasMore = false;
+            logger.info('Reached end of market data');
           }
         }
 
         await this.delay(API_DELAY_MS);
 
       } catch (error) {
-        logger.error({ error, url }, 'Failed to fetch markets');
+        logger.error({ error, url }, 'Failed to fetch markets from Gamma API');
         hasMore = false;
       }
     }
 
-    logger.info({ count: markets.length }, 'Fetched resolved markets from Gamma');
+    logger.info({ totalResolved: markets.length }, 'Completed fetching resolved markets from Gamma');
     return markets;
   }
 
