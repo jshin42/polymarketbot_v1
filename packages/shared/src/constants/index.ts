@@ -316,6 +316,66 @@ export const MARKET_FILTERING = {
     'taiwan',
     'eu ',
     'european union',
+    // Cryptocurrency & Blockchain
+    'crypto',
+    'bitcoin',
+    'btc',
+    'ethereum',
+    'eth',
+    'blockchain',
+    'defi',
+    'nft',
+    'stablecoin',
+    'coinbase',
+    'binance',
+    // Technology & AI
+    'tech',
+    'technology',
+    'artificial intelligence',
+    'ai ', // trailing space to avoid "air"
+    'chatgpt',
+    'openai',
+    'google',
+    'apple',
+    'microsoft',
+    'nvidia',
+    'tesla',
+    'spacex',
+    'starship',
+    'rocket',
+    // Science & Health
+    'science',
+    'fda',
+    'vaccine',
+    'clinical trial',
+    'medical',
+    'pandemic',
+    'virus',
+    // Weather & Climate
+    'weather',
+    'hurricane',
+    'storm',
+    'earthquake',
+    'climate',
+    'wildfire',
+    'flood',
+    // Markets & Business
+    'stock',
+    'dow',
+    'nasdaq',
+    's&p',
+    'ipo',
+    'bankruptcy',
+    'merger',
+    'acquisition',
+    // Social Media
+    'twitter',
+    'x.com',
+    'tiktok',
+    'youtube',
+    'reddit',
+    'viral',
+    'ban',
   ] as const,
 
   /**
@@ -339,10 +399,10 @@ export const MARKET_FILTERING = {
   ] as const,
 
   /** Minimum total volume (USD) for a market to be tracked */
-  MIN_VOLUME_USD: 10000,
+  MIN_VOLUME_USD: 1000,
 
   /** Minimum liquidity (USD) for a market to be tracked */
-  MIN_LIQUIDITY_USD: 5000,
+  MIN_LIQUIDITY_USD: 500,
 
   /** Log filtered markets for debugging */
   LOG_FILTERED_MARKETS: true,

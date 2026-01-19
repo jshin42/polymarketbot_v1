@@ -117,7 +117,7 @@ const DEFAULT_SCHEDULER_CONFIG: SchedulerConfig = {
   marketMetadataIntervalMs: 5 * 60 * 1000, // 5 minutes
   orderbookSnapshotIntervalMs: 1000, // 1 second
   tradePollIntervalMs: 1000, // 1 second
-  withinHours: 24, // Track markets closing within 24 hours
+  withinHours: 168, // Track markets closing within 7 days
 };
 
 export async function startSchedulers(

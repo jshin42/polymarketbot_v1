@@ -120,8 +120,8 @@ export class GammaClient {
 
       offset += limit;
 
-      // Safety limit to prevent infinite loops (max 1000 markets)
-      if (offset >= 1000) {
+      // Safety limit to prevent infinite loops (max 5000 markets)
+      if (offset >= 5000) {
         this.logger.warn({ totalFetched }, 'Hit safety limit on market pagination');
         break;
       }
