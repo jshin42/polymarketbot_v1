@@ -570,14 +570,14 @@ export class AggregationService {
       });
 
       const now = Date.now();
-      const oneHourAgo = now - 60 * 60 * 1000;
+      const fourHoursAgo = now - 4 * 60 * 60 * 1000;
 
       const activities: RecentTradeActivity[] = [];
 
       for (const trade of trades) {
-        // Only include trades from last hour
+        // Only include trades from last 4 hours
         const tradeTime = trade.timestamp * 1000; // API returns seconds
-        if (tradeTime < oneHourAgo) continue;
+        if (tradeTime < fourHoursAgo) continue;
 
         // Calculate trade notional
         const notional = trade.size * trade.price;
@@ -709,19 +709,19 @@ export class AggregationService {
       'karmine', 'movistar', 'koi',
     ];
 
-    const MIN_TOP_TRADE_USD = 500;
+    const MIN_TOP_TRADE_USD = 250;
 
     return allActivity
       .filter(a => {
         // Only BUY side trades
         if (a.side !== 'buy') return false;
 
-        // Minimum $500 threshold
+        // Minimum $250 threshold
         if (a.sizeUsd < MIN_TOP_TRADE_USD) return false;
 
-        // ASYMMETRIC FILTER: Exclude trades at 90¢+ (minimal upside potential)
-        // Buying at 90¢ = max 10¢ upside vs 90¢ downside = not asymmetric
-        if (a.price > 0.90) return false;
+        // ASYMMETRIC FILTER: Exclude trades at 95¢+ (minimal upside potential)
+        // Buying at 95¢ = max 5¢ upside vs 95¢ downside = not asymmetric
+        if (a.price > 0.95) return false;
 
         // Exclude sports/esports based on question text
         const questionLower = (a.question || '').toLowerCase();
