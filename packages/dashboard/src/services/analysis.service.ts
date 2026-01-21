@@ -36,6 +36,14 @@ export interface AnalysisConfig {
   minDepthUsd: number;
   categories: string[];
   resolvedOnly: boolean;
+  // Erdős-inspired filters (81.82% win rate discovery)
+  ofiTrendDisagree?: boolean;      // Filter for OFI vs Trend disagreement
+  outcomeFilter?: 'Yes' | 'No' | 'all';  // Filter by traded outcome
+  minPrice?: number;               // Minimum trade price (e.g., 0.90 for 90c+)
+  maxPrice?: number;               // Maximum trade price (e.g., 0.40 for longshots)
+  minZScore?: number;              // Minimum size z-score
+  maxZScore?: number;              // Maximum size z-score (sweet spot is 200-500)
+  minMinutes?: number;             // Minimum minutes before close (exclude last N min)
 }
 
 export interface ContrarianEvent {
@@ -104,10 +112,13 @@ export interface CorrelationSummary {
   totalMarkets: number;
   marketsWithSignals: number;
   totalEvents: number;
+  resolvedEvents: number; // Events with non-null outcomeWon (used for calculations)
+  unresolvedEvents: number; // Events with null outcomeWon (excluded from calculations)
   signalWinRate: number;
   baselineWinRate: number;
   correlation: number;
   pValue: number;
+  adjustedPValue?: number; // FDR-corrected p-value when comparing multiple configs
   confidenceInterval: [number, number];
   lift: number;
   lookbackDays: number;
@@ -120,6 +131,17 @@ export interface CorrelationSummary {
     validate: EvaluationMetrics;
     test: EvaluationMetrics;
   };
+  // P&L metrics - CRITICAL for understanding actual profitability
+  pnlMetrics?: PnLMetrics;
+  // Statistical significance warnings
+  isStatisticallySignificant: boolean; // p < 0.05
+  warnings: string[]; // List of data quality or statistical warnings
+}
+
+export interface ConfigComparison {
+  config: Partial<AnalysisConfig>;
+  summary: CorrelationSummary;
+  rank: number;
 }
 
 export interface BackfillStatus {
@@ -160,6 +182,43 @@ export interface ContrarianSignal {
   isAsymmetricBook: boolean;
   isNewWallet: boolean;
   sizePercentile: number | null;
+}
+
+/**
+ * P&L Metrics - Critical for understanding actual profitability
+ *
+ * IMPORTANT: Win rate alone is MEANINGLESS without price context.
+ * At 90c prices, you need 90%+ win rate to break even!
+ *
+ * Expected Value = winRate × (1-price) - loseRate × price
+ */
+export interface PnLMetrics {
+  // Core P&L
+  totalNotional: number;       // Sum of all trade sizes
+  totalPnL: number;            // Actual profit/loss in dollars
+  roi: number;                 // totalPnL / totalNotional
+
+  // Win/Loss breakdown
+  winCount: number;
+  lossCount: number;
+  totalWinPnL: number;         // Sum of winning trade profits
+  totalLossPnL: number;        // Sum of losing trade losses (negative)
+  avgWinSize: number;          // Average profit per win
+  avgLossSize: number;         // Average loss per loss (negative)
+
+  // Risk-adjusted metrics
+  profitFactor: number;        // totalWinPnL / |totalLossPnL| (>1 = profitable)
+  expectedValue: number;       // Per-dollar expected return
+  breakEvenRate: number;       // Win rate needed to break even at avg price
+  edgePoints: number;          // (winRate - breakEvenRate) × 100 (positive = edge)
+
+  // Kelly criterion
+  kellyFraction: number;       // Optimal bet size (0 = don't bet)
+  halfKelly: number;           // Conservative bet size
+
+  // Warnings
+  isProfitable: boolean;
+  warning?: string;            // e.g., "Win rate below break-even"
 }
 
 const DEFAULT_CONFIG: AnalysisConfig = {
@@ -225,18 +284,38 @@ export class AnalysisService {
         return this.getEmptySummary(cfg);
       }
 
-      // Get unique markets count
-      const uniqueMarkets = new Set(filteredEvents.map(e => e.conditionId));
+      // ========================================================================
+      // CRITICAL FIX: Filter out events with NULL outcomeWon BEFORE calculations
+      // This prevents NULL values from being treated as losses (false)
+      // ========================================================================
+      const resolvedEvents = filteredEvents.filter(e => e.outcomeWon !== null);
+      const unresolvedEvents = filteredEvents.length - resolvedEvents.length;
+
+      // Build warnings list
+      const warnings: string[] = [];
+
+      // Warn if significant portion of data is unresolved
+      if (unresolvedEvents > 0) {
+        const unresolvedPct = (unresolvedEvents / filteredEvents.length * 100).toFixed(1);
+        warnings.push(`${unresolvedEvents} events (${unresolvedPct}%) excluded due to unresolved outcomes`);
+      }
+
+      if (resolvedEvents.length === 0) {
+        return this.getEmptySummary(cfg, 'No resolved events found');
+      }
+
+      // Get unique markets count (from resolved events only)
+      const uniqueMarkets = new Set(resolvedEvents.map(e => e.conditionId));
       const marketsWithSignals = uniqueMarkets.size;
 
-      // Calculate correlation
-      const predictor = filteredEvents.map(e => this.isContrarianByMode(e, cfg.contrarianMode));
-      const outcome = filteredEvents.map(e => e.outcomeWon === true);
+      // Calculate correlation using ONLY resolved events
+      const predictor = resolvedEvents.map(e => this.isContrarianByMode(e, cfg.contrarianMode));
+      const outcome = resolvedEvents.map(e => e.outcomeWon === true);
 
       const { r, pValue, ci } = pointBiserialCorrelation(predictor, outcome);
 
-      // Calculate win rate for signal events
-      const signalEvents = filteredEvents.filter((e, i) => predictor[i]);
+      // Calculate win rate for signal events (ONLY resolved)
+      const signalEvents = resolvedEvents.filter((e, i) => predictor[i]);
       const signalWinRate = signalEvents.length > 0
         ? signalEvents.filter(e => e.outcomeWon === true).length / signalEvents.length
         : 0;
@@ -244,10 +323,29 @@ export class AnalysisService {
       const baselineWinRate = 0.5;
       const lift = baselineWinRate > 0 ? (signalWinRate - baselineWinRate) / baselineWinRate : 0;
 
-      // Calculate AUC if we have enough data
+      // Statistical significance check
+      const isStatisticallySignificant = pValue < 0.05;
+
+      // Add sample size warnings
+      if (resolvedEvents.length < 30) {
+        warnings.push(`INSUFFICIENT DATA: Only ${resolvedEvents.length} resolved events (need 30+ for reliable statistics)`);
+      } else if (resolvedEvents.length < 100) {
+        warnings.push(`Small sample size: ${resolvedEvents.length} events (recommend 100+ for confidence)`);
+      }
+
+      if (signalEvents.length < 20) {
+        warnings.push(`Few signal events: Only ${signalEvents.length} contrarian trades detected`);
+      }
+
+      // P-value warning
+      if (!isStatisticallySignificant) {
+        warnings.push(`NOT STATISTICALLY SIGNIFICANT: p-value ${pValue.toFixed(4)} > 0.05 (result may be due to chance)`);
+      }
+
+      // Calculate AUC if we have enough resolved data
       let auc: number | undefined;
       if (signalEvents.length >= 10) {
-        const predictions = filteredEvents.map(e => {
+        const predictions = resolvedEvents.map(e => {
           // Use contrarian features as prediction score
           let score = 0;
           if (e.isPriceContrarian) score += 0.25;
@@ -259,8 +357,20 @@ export class AnalysisService {
         auc = calculateAUC(predictions, outcome);
       }
 
-      // Time-split evaluation
-      const timeSplit = await this.computeTimeSplit(filteredEvents, cfg);
+      // Time-split evaluation (uses resolved events)
+      const timeSplit = await this.computeTimeSplit(resolvedEvents, cfg);
+
+      // Calculate P&L metrics - CRITICAL for understanding actual profitability
+      // Use signalEvents (contrarian trades with resolved outcomes) for P&L calculation
+      const pnlMetrics = this.calculatePnLMetrics(signalEvents);
+
+      // Add P&L warnings
+      if (pnlMetrics && !pnlMetrics.isProfitable) {
+        warnings.push(`UNPROFITABLE: ROI ${(pnlMetrics.roi * 100).toFixed(1)}%, P&L $${pnlMetrics.totalPnL.toFixed(0)}`);
+      }
+      if (pnlMetrics && pnlMetrics.edgePoints < 0) {
+        warnings.push(`Win rate ${(signalWinRate * 100).toFixed(1)}% below break-even ${(pnlMetrics.breakEvenRate * 100).toFixed(1)}%`);
+      }
 
       // Get total markets from resolved_markets table
       const totalMarketsResult = await this.pg.query<{ count: string }>(`
@@ -273,6 +383,8 @@ export class AnalysisService {
         totalMarkets,
         marketsWithSignals,
         totalEvents: filteredEvents.length,
+        resolvedEvents: resolvedEvents.length,
+        unresolvedEvents,
         signalWinRate,
         baselineWinRate,
         correlation: r,
@@ -285,6 +397,9 @@ export class AnalysisService {
         contrarianMode: cfg.contrarianMode,
         auc,
         timeSplit,
+        pnlMetrics,
+        isStatisticallySignificant,
+        warnings,
       };
     } catch (error) {
       logger.error({ error }, 'Failed to compute correlation summary');
@@ -632,18 +747,24 @@ export class AnalysisService {
         return [];
       }
 
+      // Filter out events with NULL outcomeWon for win rate calculations
+      const resolvedEvents = filteredEvents.filter(e => e.outcomeWon !== null);
+      if (resolvedEvents.length === 0) {
+        return [];
+      }
+
       const groups: Map<string, ContrarianEvent[]> = new Map();
 
       switch (factor) {
         case 'liquidity':
           // Group by spread deciles
-          const spreads = filteredEvents
+          const spreads = resolvedEvents
             .filter(e => e.spreadBps !== null)
             .map(e => e.spreadBps!);
           if (spreads.length > 0) {
             spreads.sort((a, b) => a - b);
             const decileSize = Math.ceil(spreads.length / 10);
-            for (const event of filteredEvents) {
+            for (const event of resolvedEvents) {
               if (event.spreadBps !== null) {
                 const decile = Math.min(9, Math.floor(spreads.indexOf(event.spreadBps) / decileSize));
                 const label = `Decile ${decile + 1}`;
@@ -656,7 +777,7 @@ export class AnalysisService {
 
         case 'time_to_close':
           // Group by time buckets
-          for (const event of filteredEvents) {
+          for (const event of resolvedEvents) {
             let label: string;
             if (event.minutesBeforeClose <= 15) label = '0-15 min';
             else if (event.minutesBeforeClose <= 30) label = '15-30 min';
@@ -669,7 +790,7 @@ export class AnalysisService {
 
         case 'category':
           // Group by category
-          for (const event of filteredEvents) {
+          for (const event of resolvedEvents) {
             const label = event.category || 'Unknown';
             if (!groups.has(label)) groups.set(label, []);
             groups.get(label)!.push(event);
@@ -678,7 +799,7 @@ export class AnalysisService {
 
         case 'new_wallet':
           // Group by wallet age
-          for (const event of filteredEvents) {
+          for (const event of resolvedEvents) {
             const label = event.isNewWallet ? 'New Wallet (<7d)' : 'Established Wallet';
             if (!groups.has(label)) groups.set(label, []);
             groups.get(label)!.push(event);
@@ -904,6 +1025,97 @@ export class AnalysisService {
     }
   }
 
+  /**
+   * Compare multiple configurations with FDR-corrected p-values
+   * Uses Benjamini-Hochberg procedure to control false discovery rate
+   */
+  async compareConfigs(
+    configs: Partial<AnalysisConfig>[],
+    fdr: number = 0.1
+  ): Promise<ConfigComparison[]> {
+    if (configs.length === 0) {
+      return [];
+    }
+
+    // Compute summary for each config
+    const summaries = await Promise.all(
+      configs.map(async (config) => {
+        const summary = await this.getCorrelationSummary(config);
+        return { config, summary };
+      })
+    );
+
+    // Extract p-values for FDR correction
+    const pValues = summaries.map(s => s.summary.pValue);
+
+    // Apply Benjamini-Hochberg correction
+    const bhResult = benjaminiHochberg(pValues, fdr);
+    const significantIndices = bhResult.significantIndices;
+
+    // Compute adjusted p-values using step-up procedure
+    const sortedPValues = pValues
+      .map((p, i) => ({ p, i }))
+      .sort((a, b) => a.p - b.p);
+
+    const m = pValues.length;
+    const adjustedPValues = new Array<number>(m);
+
+    // Compute adjusted p-values
+    let cumMin = Infinity;
+    for (let k = m - 1; k >= 0; k--) {
+      const { p, i } = sortedPValues[k];
+      const adjusted = Math.min(1, (m / (k + 1)) * p);
+      cumMin = Math.min(cumMin, adjusted);
+      adjustedPValues[i] = cumMin;
+    }
+
+    // Create comparison results with adjusted p-values and rankings
+    const results: ConfigComparison[] = summaries.map((s, i) => ({
+      config: s.config,
+      summary: {
+        ...s.summary,
+        adjustedPValue: adjustedPValues[i],
+      },
+      rank: 0, // Will be set below
+    }));
+
+    // Rank by correlation (higher is better), with tie-breaking by adjusted p-value
+    results.sort((a, b) => {
+      if (Math.abs(a.summary.correlation - b.summary.correlation) < 0.001) {
+        return a.summary.adjustedPValue! - b.summary.adjustedPValue!;
+      }
+      return b.summary.correlation - a.summary.correlation;
+    });
+
+    // Assign ranks
+    results.forEach((r, i) => {
+      r.rank = i + 1;
+    });
+
+    logger.info({
+      totalConfigs: configs.length,
+      significantCount: significantIndices.length,
+      fdr,
+    }, 'Completed config comparison with FDR correction');
+
+    return results;
+  }
+
+  /**
+   * Compare all contrarian modes with FDR correction
+   */
+  async compareContrarianModes(
+    baseConfig: Partial<AnalysisConfig> = {},
+    fdr: number = 0.1
+  ): Promise<ConfigComparison[]> {
+    const modes: ContrarianMode[] = ['price_only', 'vs_trend', 'vs_ofi', 'vs_both'];
+    const configs = modes.map(mode => ({
+      ...baseConfig,
+      contrarianMode: mode,
+    }));
+    return this.compareConfigs(configs, fdr);
+  }
+
   // ---------------------------------------------------------------------------
   // Private Helper Methods
   // ---------------------------------------------------------------------------
@@ -921,7 +1133,7 @@ export class AnalysisService {
     }
   }
 
-  private async getContrarianEventsFromDB(cfg: AnalysisConfig): Promise<ContrarianEvent[]> {
+  async getContrarianEventsFromDB(cfg: AnalysisConfig): Promise<ContrarianEvent[]> {
     if (!this.pg) return [];
 
     const result = await this.pg.query<{
@@ -1031,6 +1243,66 @@ export class AnalysisService {
         return false;
       }
 
+      // ========================================================================
+      // Erdős-inspired filters (81.82% win rate discovery)
+      // ========================================================================
+
+      // OFI/Trend Disagreement filter (CRITICAL - Erdős discrepancy theory)
+      // When OFI and Price Trend DISAGREE, contrarian signals are much stronger
+      if (cfg.ofiTrendDisagree) {
+        // Require both OFI and trend data to be present
+        if (e.ofi30m === null || e.priceTrend30m === null) {
+          return false;
+        }
+        // Check if OFI and trend DISAGREE (opposite signs)
+        const ofiPositive = e.ofi30m > 0;
+        const trendPositive = e.priceTrend30m > 0;
+        if (ofiPositive === trendPositive) {
+          // They agree - filter out
+          return false;
+        }
+      }
+
+      // Outcome filter (Yes trades at 90c+ have 66.67% win rate)
+      if (cfg.outcomeFilter && cfg.outcomeFilter !== 'all') {
+        if (e.tradedOutcome !== cfg.outcomeFilter) {
+          return false;
+        }
+      }
+
+      // Minimum price filter (high conviction trades)
+      if (cfg.minPrice !== undefined && cfg.minPrice > 0) {
+        if (e.tradePrice < cfg.minPrice) {
+          return false;
+        }
+      }
+
+      // Maximum price filter (longshot strategies - profitable at 30-40c)
+      if (cfg.maxPrice !== undefined && cfg.maxPrice > 0 && cfg.maxPrice < 1) {
+        if (e.tradePrice > cfg.maxPrice) {
+          return false;
+        }
+      }
+
+      // Z-Score filters (sweet spot is 200-500)
+      if (cfg.minZScore !== undefined && cfg.minZScore > 0) {
+        if (e.sizeZScore === null || e.sizeZScore < cfg.minZScore) {
+          return false;
+        }
+      }
+      if (cfg.maxZScore !== undefined && cfg.maxZScore > 0) {
+        if (e.sizeZScore !== null && e.sizeZScore > cfg.maxZScore) {
+          return false;
+        }
+      }
+
+      // Minimum minutes filter (exclude last N minutes - market efficiency)
+      if (cfg.minMinutes !== undefined && cfg.minMinutes > 0) {
+        if (e.minutesBeforeClose < cfg.minMinutes) {
+          return false;
+        }
+      }
+
       return true;
     });
   }
@@ -1107,11 +1379,124 @@ export class AnalysisService {
     };
   }
 
-  private getEmptySummary(cfg: AnalysisConfig): CorrelationSummary {
+  /**
+   * Calculate P&L metrics for a set of contrarian events
+   *
+   * CRITICAL: Win rate alone is meaningless!
+   * At price P: Win = (1-P) profit, Loss = P loss
+   * Break-even win rate = P
+   *
+   * Example at 90c:
+   * - Win profit: $0.10 (10%)
+   * - Loss: $0.90 (90%)
+   * - Need 90%+ win rate to break even!
+   */
+  private calculatePnLMetrics(events: ContrarianEvent[]): PnLMetrics {
+    // Filter to only events with known outcomes
+    const resolvedEvents = events.filter(e => e.outcomeWon !== null);
+
+    if (resolvedEvents.length === 0) {
+      return {
+        totalNotional: 0,
+        totalPnL: 0,
+        roi: 0,
+        winCount: 0,
+        lossCount: 0,
+        totalWinPnL: 0,
+        totalLossPnL: 0,
+        avgWinSize: 0,
+        avgLossSize: 0,
+        profitFactor: 0,
+        expectedValue: 0,
+        breakEvenRate: 0,
+        edgePoints: 0,
+        kellyFraction: 0,
+        halfKelly: 0,
+        isProfitable: false,
+        warning: 'No resolved events to analyze',
+      };
+    }
+
+    const wins = resolvedEvents.filter(e => e.outcomeWon === true);
+    const losses = resolvedEvents.filter(e => e.outcomeWon === false);
+
+    const totalNotional = resolvedEvents.reduce((sum, e) => sum + e.tradeNotional, 0);
+
+    // Calculate actual P&L
+    // Win: profit = notional × (1 - price)
+    // Loss: loss = notional × price (negative)
+    const totalWinPnL = wins.reduce((sum, e) =>
+      sum + e.tradeNotional * (1 - e.tradePrice), 0);
+    const totalLossPnL = losses.reduce((sum, e) =>
+      sum - e.tradeNotional * e.tradePrice, 0); // Negative value
+
+    const totalPnL = totalWinPnL + totalLossPnL;
+    const roi = totalNotional > 0 ? totalPnL / totalNotional : 0;
+
+    // Calculate average price (weighted by notional)
+    const avgPrice = totalNotional > 0
+      ? resolvedEvents.reduce((sum, e) => sum + e.tradePrice * e.tradeNotional, 0) / totalNotional
+      : 0.5;
+
+    // Break-even rate = average price (at price P, need P% wins to break even)
+    const breakEvenRate = avgPrice;
+    const winRate = resolvedEvents.length > 0 ? wins.length / resolvedEvents.length : 0;
+    const edgePoints = (winRate - breakEvenRate) * 100;
+
+    // Profit factor: totalWinPnL / |totalLossPnL|
+    const profitFactor = Math.abs(totalLossPnL) > 0
+      ? totalWinPnL / Math.abs(totalLossPnL)
+      : totalWinPnL > 0 ? Infinity : 0;
+
+    // Kelly criterion: f* = (p×b - q) / b
+    // where p = win rate, q = 1-p, b = win/loss ratio = (1-avgPrice)/avgPrice
+    const p = winRate;
+    const q = 1 - p;
+    const b = avgPrice > 0 && avgPrice < 1 ? (1 - avgPrice) / avgPrice : 0;
+    let kellyFraction = 0;
+    if (b > 0) {
+      kellyFraction = (p * b - q) / b;
+      // Kelly can be negative (don't bet) or very large (unreliable)
+      kellyFraction = Math.max(0, Math.min(kellyFraction, 1)); // Clamp to [0, 1]
+    }
+
+    // Build warning message
+    let warning: string | undefined;
+    if (edgePoints < 0) {
+      warning = `Win rate ${(winRate * 100).toFixed(1)}% below break-even ${(breakEvenRate * 100).toFixed(1)}% (losing ${Math.abs(edgePoints).toFixed(1)} edge points)`;
+    } else if (resolvedEvents.length < 30) {
+      warning = `Small sample size (n=${resolvedEvents.length}). Results may not be statistically reliable.`;
+    }
+
+    return {
+      totalNotional,
+      totalPnL,
+      roi,
+      winCount: wins.length,
+      lossCount: losses.length,
+      totalWinPnL,
+      totalLossPnL,
+      avgWinSize: wins.length > 0 ? totalWinPnL / wins.length : 0,
+      avgLossSize: losses.length > 0 ? totalLossPnL / losses.length : 0, // Will be negative
+      profitFactor,
+      expectedValue: roi,
+      breakEvenRate,
+      edgePoints,
+      kellyFraction,
+      halfKelly: kellyFraction / 2,
+      isProfitable: totalPnL > 0 && edgePoints > 0,
+      warning,
+    };
+  }
+
+  private getEmptySummary(cfg: AnalysisConfig, warning?: string): CorrelationSummary {
+    const warnings: string[] = warning ? [warning] : [];
     return {
       totalMarkets: 0,
       marketsWithSignals: 0,
       totalEvents: 0,
+      resolvedEvents: 0,
+      unresolvedEvents: 0,
       signalWinRate: 0,
       baselineWinRate: 0.5,
       correlation: 0,
@@ -1122,6 +1507,28 @@ export class AnalysisService {
       minSizeUsd: cfg.minSizeUsd,
       windowMinutes: cfg.windowMinutes,
       contrarianMode: cfg.contrarianMode,
+      isStatisticallySignificant: false,
+      warnings,
+      // Include empty P&L metrics for consistency
+      pnlMetrics: {
+        totalNotional: 0,
+        totalPnL: 0,
+        roi: 0,
+        winCount: 0,
+        lossCount: 0,
+        totalWinPnL: 0,
+        totalLossPnL: 0,
+        avgWinSize: 0,
+        avgLossSize: 0,
+        profitFactor: 0,
+        expectedValue: 0,
+        breakEvenRate: 0,
+        edgePoints: 0,
+        kellyFraction: 0,
+        halfKelly: 0,
+        isProfitable: false,
+        warning: warning || 'No data available',
+      },
     };
   }
 }

@@ -79,16 +79,22 @@ export class WalletProfileService {
         let joinedDate: string | null = null;
         let joinedTimestamp: number | null = null;
 
-        // Try multiple patterns
+        // Try multiple patterns - ordered by specificity (most accurate first)
         const patterns = [
-          // Pattern 1: "Joined" text node followed by month year
+          // Pattern 1: joinDate JSON field (most reliable - from user profile stats)
+          // Matches: {"joinDate":"Jan 2026"}
+          /"joinDate"\s*:\s*"([A-Z][a-z]+ \d{4})"/i,
+
+          // Pattern 2: "Joined" text node followed by month year in HTML
           /Joined["\s<>span\/]*["']?([A-Z][a-z]+ \d{4})["']?/i,
-          // Pattern 2: Direct month year after Joined
+
+          // Pattern 3: Direct month year after Joined span
           /Joined\s*<\/span>\s*<span[^>]*>\s*"?([A-Z][a-z]+ \d{4})"?/i,
-          // Pattern 3: JSON-like format in script tags
-          /"joinedAt":\s*"(\d{4}-\d{2}-\d{2})/i,
-          // Pattern 4: createdAt timestamp
-          /"createdAt":\s*"(\d{4}-\d{2}-\d{2})/i,
+
+          // Pattern 4: joinedAt timestamp (ISO format) - if available
+          /"joinedAt"\s*:\s*"(\d{4}-\d{2}-\d{2})/i,
+
+          // NOTE: createdAt pattern REMOVED - it incorrectly matches category metadata
         ];
 
         for (const pattern of patterns) {

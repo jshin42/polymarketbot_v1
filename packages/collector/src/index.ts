@@ -1,4 +1,5 @@
 import { Queue } from 'bullmq';
+import { Pool } from 'pg';
 import { RedisKeys, createLogger, Redis } from '@polymarketbot/shared';
 import { GammaClient } from './clients/gamma.client.js';
 import { ClobRestClient } from './clients/clob-rest.client.js';
@@ -54,6 +55,31 @@ async function main() {
     logger.info('Redis connected');
   });
 
+  // Initialize PostgreSQL connection for trade persistence
+  let pgPool: Pool | null = null;
+  const pgHost = process.env.POSTGRES_HOST ?? process.env.DATABASE_HOST;
+
+  if (pgHost) {
+    try {
+      pgPool = new Pool({
+        host: pgHost,
+        port: parseInt(process.env.POSTGRES_PORT ?? process.env.DATABASE_PORT ?? '5432', 10),
+        database: process.env.POSTGRES_DB ?? process.env.DATABASE_NAME ?? 'polymarketbot',
+        user: process.env.POSTGRES_USER ?? process.env.DATABASE_USER ?? 'postgres',
+        password: process.env.POSTGRES_PASSWORD ?? process.env.DATABASE_PASSWORD ?? 'postgres',
+        max: 20,
+      });
+
+      await pgPool.query('SELECT 1');
+      logger.info('PostgreSQL connected for trade persistence');
+    } catch (error) {
+      logger.warn({ error }, 'PostgreSQL connection failed - trades will not be persisted to database');
+      pgPool = null;
+    }
+  } else {
+    logger.info('PostgreSQL not configured - trades will only be stored in Redis');
+  }
+
   // Initialize clients
   const gammaClient = new GammaClient();
   const clobClient = new ClobRestClient({
@@ -104,6 +130,7 @@ async function main() {
     dataApiClient,
     walletEnricherService,
     featuresQueue,
+    pgPool,
   });
 
   // Start schedulers
@@ -125,6 +152,9 @@ async function main() {
     await collectorQueue.close();
     await featuresQueue.close();
     await redis.quit();
+    if (pgPool) {
+      await pgPool.end();
+    }
 
     logger.info('Collector service stopped');
     process.exit(0);

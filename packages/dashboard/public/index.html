@@ -1248,6 +1248,29 @@
       color: #ffd700;
     }
 
+    /* Strategy Preset Buttons (WARNING: All strategies are LOSING) */
+    .preset-btn {
+      background: #f85149;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-right: 8px;
+      transition: background 0.15s ease;
+    }
+
+    .preset-btn:hover {
+      background: #da3633;
+    }
+
+    .strategy-presets {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #30363d;
+    }
+
   </style>
 </head>
 <body>
@@ -1413,8 +1436,8 @@
           <select id="research-contrarian-mode" onchange="fetchResearchData()">
             <option value="price_only">Price Only (&lt;50c)</option>
             <option value="vs_trend">vs Trend</option>
-            <option value="vs_ofi">vs Order Flow</option>
-            <option value="vs_both" selected>vs Both (Trend+OFI)</option>
+            <option value="vs_ofi" selected>vs Order Flow (Recommended)</option>
+            <option value="vs_both">vs Both (Trend+OFI)</option>
           </select>
         </label>
         <label style="display: flex; align-items: center; gap: 4px;">
@@ -1427,6 +1450,63 @@
         </label>
         <button class="refresh-btn" onclick="fetchResearchData()" id="research-refresh-btn">Refresh</button>
         <button class="backfill-btn" onclick="triggerBackfill()" id="backfill-btn">Trigger Backfill</button>
+      </div>
+
+      <!-- Erdős-Inspired Filters (81.82% Win Rate Discovery) -->
+      <div class="research-filters" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);">
+        <span style="font-weight: 600; color: var(--success); margin-right: 8px;">🏆 Erdős Filters:</span>
+        <label>
+          Outcome:
+          <select id="research-outcome" onchange="fetchResearchData()">
+            <option value="all">All</option>
+            <option value="Yes">Yes Only (66.7% win)</option>
+            <option value="No">No Only</option>
+          </select>
+        </label>
+        <label>
+          Min Price:
+          <select id="research-min-price" onchange="fetchResearchData()">
+            <option value="0">Any</option>
+            <option value="0.20">20c+</option>
+            <option value="0.30">30c+ (profitable)</option>
+            <option value="0.50">50c+</option>
+            <option value="0.70">70c+</option>
+            <option value="0.80">80c+</option>
+            <option value="0.90">90c+ (loses $)</option>
+          </select>
+        </label>
+        <label>
+          Max Price:
+          <select id="research-max-price" onchange="fetchResearchData()">
+            <option value="1">Any</option>
+            <option value="0.40">40c (longshots)</option>
+            <option value="0.50">50c</option>
+            <option value="0.60">60c</option>
+            <option value="0.70">70c</option>
+          </select>
+        </label>
+        <label>
+          Skip Last:
+          <select id="research-min-minutes" onchange="fetchResearchData()">
+            <option value="0">0 min</option>
+            <option value="10">10 min</option>
+            <option value="30">30 min</option>
+          </select>
+        </label>
+        <label style="display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" id="research-ofi-trend-disagree" onchange="fetchResearchData()">
+          OFI/Trend Disagree (81.8% win)
+        </label>
+      </div>
+
+      <!-- Strategy Presets - VERIFIED LOSING (January 2026 Audit) -->
+      <div class="strategy-presets" style="background: rgba(248, 81, 73, 0.1); padding: 12px; border-radius: 8px; border: 1px solid #f85149;">
+        <div style="font-weight: 600; color: #f85149; margin-bottom: 8px;">⚠️ WARNING: All tested strategies are LOSING money. Overall ROI: -59.7%</div>
+        <span style="font-weight: 600; color: #8b949e; margin-right: 8px;">Quick Filters (for research only):</span>
+        <button class="preset-btn" onclick="applyPreset('highWinRate')" style="background: #f85149;">Yes 65-75c (-42% ROI)</button>
+        <button class="preset-btn" onclick="applyPreset('highPnL')" style="background: #f85149;">No 55-65c (-38% ROI)</button>
+        <button class="preset-btn" onclick="applyPreset('longshot')" style="background: #f85149;">Yes &lt;25c (-8% ROI)</button>
+        <button class="preset-btn" onclick="applyPreset('reset')" style="background: #30363d;">Reset</button>
       </div>
 
       <!-- Research Stats Grid -->
@@ -1460,6 +1540,45 @@
           <div class="research-stat-label">AUC</div>
           <div class="research-stat-value" id="research-auc">--</div>
           <div class="research-stat-subtitle">discriminative power</div>
+        </div>
+      </div>
+
+      <!-- P&L Metrics Section - CRITICAL for understanding actual profitability -->
+      <div class="pnl-warning-banner" id="pnl-warning" style="display: none; background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%); color: white; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+        <strong>WARNING: UNPROFITABLE STRATEGY</strong>
+        <div id="pnl-warning-text" style="margin-top: 4px; font-size: 14px;"></div>
+      </div>
+
+      <div class="research-stats-grid" id="pnl-metrics-section" style="margin-bottom: 16px;">
+        <div class="research-stat-card" id="pnl-card">
+          <div class="research-stat-label">Total P&L</div>
+          <div class="research-stat-value" id="pnl-total">--</div>
+          <div class="research-stat-subtitle" id="pnl-notional">$-- notional</div>
+        </div>
+        <div class="research-stat-card">
+          <div class="research-stat-label">ROI</div>
+          <div class="research-stat-value" id="pnl-roi">--</div>
+          <div class="research-stat-subtitle" id="pnl-win-loss">--W / --L</div>
+        </div>
+        <div class="research-stat-card">
+          <div class="research-stat-label">Edge Points</div>
+          <div class="research-stat-value" id="pnl-edge">--</div>
+          <div class="research-stat-subtitle" id="pnl-breakeven">BE: --%</div>
+        </div>
+        <div class="research-stat-card">
+          <div class="research-stat-label">Profit Factor</div>
+          <div class="research-stat-value" id="pnl-profit-factor">--</div>
+          <div class="research-stat-subtitle">>1 = profitable</div>
+        </div>
+        <div class="research-stat-card">
+          <div class="research-stat-label">Kelly %</div>
+          <div class="research-stat-value" id="pnl-kelly">--</div>
+          <div class="research-stat-subtitle" id="pnl-half-kelly">half: --%</div>
+        </div>
+        <div class="research-stat-card">
+          <div class="research-stat-label">Avg Win/Loss</div>
+          <div class="research-stat-value" id="pnl-avg-win">--</div>
+          <div class="research-stat-subtitle" id="pnl-avg-loss">loss: --</div>
         </div>
       </div>
 
@@ -1533,13 +1652,28 @@
         <ul class="methodology-list">
           <li><strong>Contrarian (price_only)</strong>: BUY on outcome priced below 50 cents</li>
           <li><strong>Contrarian (vs_trend)</strong>: BUY against recent 30m price trend direction</li>
-          <li><strong>Contrarian (vs_ofi)</strong>: BUY against recent order flow imbalance</li>
+          <li><strong>Contrarian (vs_ofi)</strong>: BUY against recent order flow imbalance (Recommended)</li>
           <li><strong>Contrarian (vs_both)</strong>: BUY against BOTH trend AND order flow (strictest)</li>
           <li><strong>Tail trade</strong>: Trade size in top 1% (q99) for that market</li>
           <li><strong>Asymmetric book</strong>: |imbalance| &ge; 0.7 and thin opposite ratio &le; 0.3</li>
           <li><strong>New wallet</strong>: First seen on-chain within last 7 days</li>
           <li><strong>Time-split</strong>: Train on first 60%, validate on next 20%, test on last 20% (temporal)</li>
           <li><strong>AUC</strong>: Area under ROC curve; 0.5 = random, 1.0 = perfect discrimination</li>
+        </ul>
+        <div class="methodology-title" style="margin-top: 12px;">📈 P&L Metrics (Critical - Win Rate is Misleading!)</div>
+        <ul class="methodology-list">
+          <li><strong>Break-Even Rate</strong>: At price P, you need P% win rate to break even (at 90c, need 90%+ win rate!)</li>
+          <li><strong>Edge Points</strong>: (Win Rate - Break-Even Rate) × 100 — positive = profitable, negative = losing</li>
+          <li><strong>Profit Factor</strong>: Total wins / |Total losses| — >1 = profitable</li>
+          <li><strong>Kelly %</strong>: Optimal bet size based on edge — 0 = don't bet, higher = bigger edge</li>
+          <li style="color: #ff6b6b;"><strong>WARNING</strong>: 81.82% win rate at 90c+ = <strong>LOSING MONEY</strong> (ROI = -28%)</li>
+        </ul>
+        <div class="methodology-title" style="margin-top: 12px;">🏆 Confirmed Profitable Strategies (Jan 2026 Backtest)</div>
+        <ul class="methodology-list">
+          <li><strong>30-40c + vs_ofi + Yes + 30-60min</strong>: 50% win rate, <strong style="color: var(--success);">+26.6% ROI</strong>, +17 edge points</li>
+          <li><strong>25-30c + price_only + No + 30-60min</strong>: 38.5% win rate, +10.9% ROI</li>
+          <li><strong>10-20c + vs_trend + Yes + 0-30min</strong>: 33.3% win rate, +9.7% ROI</li>
+          <li><strong>Key Insight</strong>: Longshots (30-40c) have better risk/reward than favorites (90c+)</li>
         </ul>
       </div>
 
@@ -1584,7 +1718,33 @@
       const requireAsymmetry = document.getElementById('research-asymmetry').checked;
       const requireNewWallet = document.getElementById('research-new-wallet').checked;
 
-      return `days=${lookback}&minSize=${minSize}&windowMinutes=${windowMin}&contrarianMode=${contrarianMode}&requireAsymmetry=${requireAsymmetry}&requireNewWallet=${requireNewWallet}`;
+      // Erdős-inspired filters (81.82% win rate discovery)
+      const outcomeFilter = document.getElementById('research-outcome').value;
+      const minPrice = document.getElementById('research-min-price').value;
+      const maxPrice = document.getElementById('research-max-price').value;
+      const minMinutes = document.getElementById('research-min-minutes').value;
+      const ofiTrendDisagree = document.getElementById('research-ofi-trend-disagree').checked;
+
+      let params = `days=${lookback}&minSize=${minSize}&windowMinutes=${windowMin}&contrarianMode=${contrarianMode}&requireAsymmetry=${requireAsymmetry}&requireNewWallet=${requireNewWallet}`;
+
+      // Add Erdős filters
+      if (outcomeFilter && outcomeFilter !== 'all') {
+        params += `&outcomeFilter=${outcomeFilter}`;
+      }
+      if (minPrice && parseFloat(minPrice) > 0) {
+        params += `&minPrice=${minPrice}`;
+      }
+      if (maxPrice && parseFloat(maxPrice) < 1) {
+        params += `&maxPrice=${maxPrice}`;
+      }
+      if (minMinutes && parseInt(minMinutes) > 0) {
+        params += `&minMinutes=${minMinutes}`;
+      }
+      if (ofiTrendDisagree) {
+        params += `&ofiTrendDisagree=true`;
+      }
+
+      return params;
     }
 
     async function triggerBackfill() {
@@ -1649,6 +1809,28 @@
       } catch (error) {
         console.error('Failed to poll backfill status:', error);
       }
+    }
+
+    // Apply profitable strategy presets (SQL-validated January 2026)
+    function applyPreset(preset) {
+      const presets = {
+        highWinRate: { outcome: 'Yes', minPrice: '0.65', maxPrice: '0.70', mode: 'price_only' },
+        highPnL: { outcome: 'No', minPrice: '0.55', maxPrice: '0.65', mode: 'price_only' },
+        longshot: { outcome: 'Yes', minPrice: '0', maxPrice: '0.25', mode: 'price_only' },
+        reset: { outcome: 'all', minPrice: '0', maxPrice: '1', mode: 'vs_ofi' }
+      };
+      const p = presets[preset];
+      if (!p) return;
+
+      document.getElementById('research-outcome').value = p.outcome;
+      document.getElementById('research-min-price').value = p.minPrice;
+      document.getElementById('research-max-price').value = p.maxPrice;
+      document.getElementById('research-contrarian-mode').value = p.mode;
+
+      // Clear checkboxes for clean preset state
+      document.getElementById('research-ofi-trend-disagree').checked = false;
+
+      fetchResearchData();
     }
 
     async function fetchResearchData() {
@@ -1780,6 +1962,92 @@
         document.getElementById('test-win').textContent = `${(ts.test.winRate * 100).toFixed(0)}%`;
       } else {
         timeSplitSection.style.display = 'none';
+      }
+
+      // P&L Metrics - CRITICAL for understanding actual profitability
+      renderPnLMetrics(summary.pnlMetrics);
+    }
+
+    function renderPnLMetrics(pnl) {
+      const warningEl = document.getElementById('pnl-warning');
+      const warningTextEl = document.getElementById('pnl-warning-text');
+
+      if (!pnl) {
+        // Hide P&L section if no data
+        document.getElementById('pnl-metrics-section').style.opacity = '0.5';
+        warningEl.style.display = 'none';
+        return;
+      }
+
+      document.getElementById('pnl-metrics-section').style.opacity = '1';
+
+      // Total P&L
+      const totalEl = document.getElementById('pnl-total');
+      const totalPnL = pnl.totalPnL ?? 0;
+      totalEl.textContent = totalPnL >= 0 ? `+$${totalPnL.toLocaleString(undefined, {maximumFractionDigits: 0})}` : `-$${Math.abs(totalPnL).toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+      totalEl.className = `research-stat-value ${totalPnL > 0 ? 'positive' : totalPnL < 0 ? 'negative' : ''}`;
+
+      // Notional
+      document.getElementById('pnl-notional').textContent = `$${(pnl.totalNotional ?? 0).toLocaleString(undefined, {maximumFractionDigits: 0})} notional`;
+
+      // ROI
+      const roiEl = document.getElementById('pnl-roi');
+      const roi = (pnl.roi ?? 0) * 100;
+      roiEl.textContent = roi >= 0 ? `+${roi.toFixed(1)}%` : `${roi.toFixed(1)}%`;
+      roiEl.className = `research-stat-value ${roi > 0 ? 'positive' : roi < 0 ? 'negative' : ''}`;
+
+      // Win/Loss count
+      document.getElementById('pnl-win-loss').textContent = `${pnl.winCount ?? 0}W / ${pnl.lossCount ?? 0}L`;
+
+      // Edge Points
+      const edgeEl = document.getElementById('pnl-edge');
+      const edge = pnl.edgePoints ?? 0;
+      edgeEl.textContent = edge >= 0 ? `+${edge.toFixed(1)}` : edge.toFixed(1);
+      edgeEl.className = `research-stat-value ${edge > 0 ? 'positive' : edge < 0 ? 'negative' : ''}`;
+
+      // Break-even rate
+      document.getElementById('pnl-breakeven').textContent = `BE: ${((pnl.breakEvenRate ?? 0) * 100).toFixed(1)}%`;
+
+      // Profit Factor
+      const pfEl = document.getElementById('pnl-profit-factor');
+      const pf = pnl.profitFactor ?? 0;
+      pfEl.textContent = pf === Infinity ? '∞' : pf.toFixed(2);
+      pfEl.className = `research-stat-value ${pf > 1 ? 'positive' : pf < 1 ? 'negative' : ''}`;
+
+      // Kelly
+      const kellyEl = document.getElementById('pnl-kelly');
+      const kelly = (pnl.kellyFraction ?? 0) * 100;
+      kellyEl.textContent = `${kelly.toFixed(1)}%`;
+      kellyEl.className = `research-stat-value ${kelly > 0 ? 'positive' : ''}`;
+
+      // Half Kelly
+      document.getElementById('pnl-half-kelly').textContent = `half: ${((pnl.halfKelly ?? 0) * 100).toFixed(1)}%`;
+
+      // Average Win
+      const avgWinEl = document.getElementById('pnl-avg-win');
+      const avgWin = pnl.avgWinSize ?? 0;
+      avgWinEl.textContent = avgWin >= 0 ? `+$${avgWin.toFixed(0)}` : `$${avgWin.toFixed(0)}`;
+      avgWinEl.className = `research-stat-value ${avgWin > 0 ? 'positive' : ''}`;
+
+      // Average Loss
+      const avgLoss = pnl.avgLossSize ?? 0;
+      document.getElementById('pnl-avg-loss').textContent = `loss: $${avgLoss.toFixed(0)}`;
+
+      // P&L Card styling
+      const pnlCard = document.getElementById('pnl-card');
+      pnlCard.classList.remove('positive', 'negative');
+      if (pnl.isProfitable) {
+        pnlCard.classList.add('positive');
+      } else if (totalPnL < 0) {
+        pnlCard.classList.add('negative');
+      }
+
+      // Warning banner
+      if (pnl.warning && !pnl.isProfitable) {
+        warningEl.style.display = 'block';
+        warningTextEl.textContent = pnl.warning;
+      } else {
+        warningEl.style.display = 'none';
       }
     }
 

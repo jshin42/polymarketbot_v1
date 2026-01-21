@@ -19,12 +19,14 @@
     "@polymarketbot/shared": "workspace:*",
     "bullmq": "^5.1.0",
     "ioredis": "^5.4.1",
+    "pg": "^8.12.0",
     "pino": "^8.17.2",
     "ws": "^8.16.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/pg": "^8.11.6",
     "@types/ws": "^8.5.10",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",

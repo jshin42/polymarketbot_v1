@@ -380,12 +380,14 @@ export class BackfillService {
 
     try {
       const prices = JSON.parse(market.outcomePrices);
-      finalYesPrice = prices[0];
-      finalNoPrice = prices[1];
+      // Parse as floats since API returns strings like "1" or "0"
+      finalYesPrice = parseFloat(prices[0]) || 0;
+      finalNoPrice = parseFloat(prices[1]) || 0;
 
-      if (prices[0] === 1) {
+      // Handle both string "1" and numeric 1 values from API
+      if (finalYesPrice === 1) {
         winningOutcome = 'Yes';
-      } else if (prices[1] === 1) {
+      } else if (finalNoPrice === 1) {
         winningOutcome = 'No';
       }
 
@@ -585,7 +587,25 @@ export class BackfillService {
       // Determine if outcome won
       const outcomeWon = outcome === winningOutcome;
 
-      // Insert contrarian event
+      // Compute price drift after the signal (30m and 60m later)
+      // drift = (later_price - signal_price) / signal_price
+      const drift30m = await this.computePriceDrift(
+        conditionId,
+        trade.token_id,
+        trade.trade_timestamp,
+        30, // minutes
+        price
+      );
+
+      const drift60m = await this.computePriceDrift(
+        conditionId,
+        trade.token_id,
+        trade.trade_timestamp,
+        60, // minutes
+        price
+      );
+
+      // Insert contrarian event with drift values
       await this.pg.query(`
         INSERT INTO contrarian_events (
           condition_id, token_id, trade_timestamp, minutes_before_close,
@@ -593,16 +613,19 @@ export class BackfillService {
           size_percentile, size_z_score, is_tail_trade,
           is_price_contrarian, price_trend_30m, is_against_trend,
           ofi_30m, is_against_ofi, is_contrarian,
-          traded_outcome, outcome_won
+          traded_outcome, outcome_won,
+          drift_30m, drift_60m
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
         ON CONFLICT (condition_id, token_id, trade_timestamp) DO UPDATE SET
           size_percentile = EXCLUDED.size_percentile,
           is_price_contrarian = EXCLUDED.is_price_contrarian,
           is_against_trend = EXCLUDED.is_against_trend,
           is_against_ofi = EXCLUDED.is_against_ofi,
           is_contrarian = EXCLUDED.is_contrarian,
-          outcome_won = EXCLUDED.outcome_won
+          outcome_won = EXCLUDED.outcome_won,
+          drift_30m = EXCLUDED.drift_30m,
+          drift_60m = EXCLUDED.drift_60m
       `, [
         conditionId,
         trade.token_id,
@@ -624,12 +647,57 @@ export class BackfillService {
         isContrarian,
         outcome,
         outcomeWon,
+        drift30m,
+        drift60m,
       ]);
 
       eventsCreated++;
     }
 
     return eventsCreated;
+  }
+
+  /**
+   * Compute price drift after a signal
+   * Returns the percentage change in price X minutes after the signal
+   * drift = (later_price - signal_price) / signal_price
+   */
+  private async computePriceDrift(
+    conditionId: string,
+    tokenId: string,
+    signalTimestamp: string | Date,
+    minutesLater: number,
+    signalPrice: number
+  ): Promise<number | null> {
+    // Don't compute drift if signal price is 0
+    if (signalPrice === 0) return null;
+
+    try {
+      // Find the trade closest to X minutes after the signal
+      const result = await this.pg.query(`
+        SELECT price, trade_timestamp
+        FROM historical_trades
+        WHERE condition_id = $1
+          AND token_id = $2
+          AND trade_timestamp > $3
+          AND trade_timestamp <= $3 + INTERVAL '${minutesLater} minutes'
+        ORDER BY trade_timestamp DESC
+        LIMIT 1
+      `, [conditionId, tokenId, signalTimestamp]);
+
+      if (result.rows.length === 0) {
+        // No trades in the drift window
+        return null;
+      }
+
+      const laterPrice = parseFloat(result.rows[0].price);
+      const drift = (laterPrice - signalPrice) / signalPrice;
+
+      return drift;
+    } catch (error) {
+      logger.warn({ error, conditionId, tokenId, minutesLater }, 'Failed to compute price drift');
+      return null;
+    }
   }
 
   /**

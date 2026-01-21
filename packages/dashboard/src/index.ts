@@ -1,9 +1,21 @@
+// Load environment variables from .env file FIRST before any other imports
+import { config } from 'dotenv';
+import { resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Get the project root (3 levels up from dist/index.js)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const projectRoot = resolve(__dirname, '..', '..', '..');
+
+// Load .env from project root
+config({ path: resolve(projectRoot, '.env') });
+
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import { Pool } from 'pg';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import { createLogger, Redis } from '@polymarketbot/shared';
 
 import { AggregationService } from './services/aggregation.service.js';
@@ -92,8 +104,6 @@ async function main() {
   });
 
   // Register static file serving for dashboard UI
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
   await app.register(fastifyStatic, {
     root: join(__dirname, '..', 'public'),
     prefix: '/',

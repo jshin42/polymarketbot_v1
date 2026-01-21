@@ -21,6 +21,8 @@ export interface MarketSummary {
   signalStrength: string | null;
   category: string | null;
   tags: string[];
+  eventSlug: string | null;
+  slug: string | null;
 }
 
 export interface PositionSummary {
@@ -213,6 +215,8 @@ export class AggregationService {
           signalStrength: score?.signalStrength ?? null,
           category: metadata.category || null,
           tags: metadata.tags || [],
+          eventSlug: metadata.eventSlug || null,
+          slug: metadata.slug || null,
         });
       } catch (error) {
         logger.warn({ tokenData, error }, 'Failed to get market summary');
@@ -558,26 +562,51 @@ export class AggregationService {
   /**
    * Get recent high-value trades from Data API.
    * Uses the rich trade data that includes username, eventSlug, etc.
+   * Paginates through API to get 24 hours of trade data.
    */
   async getRecentActivity(limit: number = 20): Promise<RecentTradeActivity[]> {
     try {
-      // Fetch recent trades from Data API (sorted by timestamp descending)
-      // Fetch 500 (API max) to find more qualifying non-sports trades
-      const trades = await this.dataApiClient.getTrades({
-        limit: 500, // Maximum allowed by API (was 100)
-        sortBy: 'TIMESTAMP',
-        sortDirection: 'DESC',
-      });
-
       const now = Date.now();
-      const fourHoursAgo = now - 4 * 60 * 60 * 1000;
+      const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+      const startTimestamp = Math.floor(twentyFourHoursAgo / 1000); // API uses seconds
+
+      // Fetch trades from last 24 hours using start parameter
+      // Paginate to get more trades since 500 is the per-request limit
+      const allTrades: Awaited<ReturnType<typeof this.dataApiClient.getTrades>> = [];
+      let offset = 0;
+      const batchLimit = 500;
+      const maxOffset = 10000; // API max offset
+
+      while (offset < maxOffset) {
+        const batch = await this.dataApiClient.getTrades({
+          limit: batchLimit,
+          offset,
+          start: startTimestamp,
+          sortBy: 'TIMESTAMP',
+          sortDirection: 'DESC',
+        });
+
+        if (batch.length === 0) break;
+        allTrades.push(...batch);
+
+        // Stop if we got fewer than limit (no more data)
+        if (batch.length < batchLimit) break;
+
+        offset += batchLimit;
+
+        // Safety: stop after 5000 trades to avoid infinite loops
+        if (allTrades.length >= 5000) break;
+      }
+
+      logger.debug({ totalTrades: allTrades.length, pages: Math.ceil(offset / batchLimit) }, 'Fetched trades from Data API');
+
+      const trades = allTrades;
 
       const activities: RecentTradeActivity[] = [];
 
       for (const trade of trades) {
-        // Only include trades from last 4 hours
+        // Trade time already filtered by API start parameter
         const tradeTime = trade.timestamp * 1000; // API returns seconds
-        if (tradeTime < fourHoursAgo) continue;
 
         // Calculate trade notional
         const notional = trade.size * trade.price;
@@ -687,7 +716,7 @@ export class AggregationService {
       'hornets', 'hawks', 'cavaliers', 'wizards',
 
       // Soccer/Football (international clubs & leagues)
-      'fútbol', 'futbol', ' fc', 'ac milan', 'inter milan', 'as roma',
+      'fútbol', 'futbol', ' fc', 'cf ', 'ac milan', 'inter milan', 'as roma',
       'arsenal', 'chelsea', 'liverpool', 'manchester', 'tottenham',
       'real madrid', 'barcelona', 'atletico', 'real sociedad', 'sevilla',
       'juventus', 'napoli', 'lazio', 'fiorentina', 'lecce',
@@ -696,6 +725,7 @@ export class AggregationService {
       'ajax', 'psv', 'feyenoord', 'benfica', 'porto', 'sporting',
       'la liga', 'premier league', 'serie a', 'bundesliga', 'ligue 1',
       'eredivisie', 'primeira liga', 'uefa', 'fifa',
+      'pachuca', 'américa', 'toluca', 'tigres', 'monterrey', 'cruz azul', // Mexican Liga MX
 
       // Esports games
       'call of duty', 'league of legends', 'counter-strike', 'cs2', 'csgo',
@@ -707,29 +737,215 @@ export class AggregationService {
       'natus vincere', 'navi', 'faze', 'g2', 'team liquid', 'fnatic',
       'cloud9', 'tsm', '100 thieves', 'sentinels', 'optic',
       'karmine', 'movistar', 'koi',
+
+      // Cryptocurrency & Price Predictions
+      'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol',
+      'crypto', 'doge', 'dogecoin', 'xrp', 'ripple', 'cardano', 'ada',
+      'polygon', 'matic', 'avalanche', 'avax', 'chainlink', 'link',
+      'litecoin', 'ltc', 'polkadot', 'dot', 'uniswap', 'uni',
+      'shiba', 'pepe', 'memecoin', 'altcoin', 'defi',
+      'coinbase', 'binance', 'kraken', 'ftx',
+      'up or down', 'price of', 'dip to', 'rise to', 'hit $',
     ];
 
-    const MIN_TOP_TRADE_USD = 250;
+    const MIN_TOP_TRADE_USD = 1000;
+    const HUGE_TRADE_THRESHOLD = 50000; // Allow ANY category if trade is >$50k
 
     return allActivity
       .filter(a => {
         // Only BUY side trades
         if (a.side !== 'buy') return false;
 
-        // Minimum $250 threshold
+        // Minimum $1,000 threshold
         if (a.sizeUsd < MIN_TOP_TRADE_USD) return false;
 
         // ASYMMETRIC FILTER: Exclude trades at 95¢+ (minimal upside potential)
         // Buying at 95¢ = max 5¢ upside vs 95¢ downside = not asymmetric
         if (a.price > 0.95) return false;
 
-        // Exclude sports/esports based on question text
+        // HUGE TRADE EXCEPTION: Include ANY category if trade is massive (>$50k)
+        if (a.sizeUsd >= HUGE_TRADE_THRESHOLD) return true;
+
+        // Exclude sports/esports/crypto based on question text (unless huge)
         const questionLower = (a.question || '').toLowerCase();
         const isExcluded = exclusions.some(exc => questionLower.includes(exc));
         return !isExcluded;
       })
       .sort((a, b) => b.sizeUsd - a.sizeUsd)
       .slice(0, limit);
+  }
+
+  /**
+   * Get top N largest BUY trades from PostgreSQL (last 24 hours).
+   * Falls back to API-based getTopTrades() if PostgreSQL is unavailable or has no data.
+   * This provides true 24-hour historical data by querying persisted trades.
+   */
+  async getTopTradesFromDB(limit: number = 10): Promise<RecentTradeActivity[]> {
+    if (!this.pgPool) {
+      logger.debug('PostgreSQL not available, falling back to API-based top trades');
+      return this.getTopTrades(limit);
+    }
+
+    try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      // Query PostgreSQL for largest BUY trades in last 24 hours
+      // Filter: BUY side, price <= 0.95 (asymmetric), notional >= $1,000
+      const MIN_TOP_TRADE_USD = 1000;
+      const HUGE_TRADE_THRESHOLD = 50000; // Allow ANY category if trade is >$50k
+
+      const result = await this.pgPool.query<{
+        trade_id: string;
+        time: Date;
+        token_id: string;
+        taker_address: string;
+        side: string;
+        price: number;
+        size: number;
+        notional: number;
+      }>(`
+        SELECT
+          trade_id,
+          time,
+          token_id,
+          taker_address,
+          side,
+          price,
+          size,
+          (size * price) as notional
+        FROM trades
+        WHERE time >= $1
+          AND side = 'BUY'
+          AND price <= 0.95
+          AND (size * price) >= $3
+        ORDER BY notional DESC
+        LIMIT $2
+      `, [twentyFourHoursAgo, limit * 10, MIN_TOP_TRADE_USD]); // Fetch extra for filtering
+
+      if (result.rows.length === 0) {
+        logger.info('No trades found in PostgreSQL, falling back to API');
+        return this.getTopTrades(limit);
+      }
+
+      // Exclusion patterns for sports/crypto/esports (same as getTopTrades)
+      const exclusions = [
+        'sports', 'esports', 'nfl', 'nba', 'mlb', 'nhl', 'soccer', 'football',
+        'basketball', 'baseball', 'hockey', 'tennis', 'golf', 'mma', 'ufc',
+        'boxing', 'cricket', 'f1', 'formula 1', 'nascar', 'rugby', 'volleyball',
+        'super bowl', 'world series', 'world cup', 'champions league', 'stanley cup',
+        'playoffs', 'finals', 'championship', 'march madness', 'bowl game',
+        'o/u ', 'over/under', 'handicap', 'point spread', 'moneyline', 'vs.', 'vs ',
+        'patriots', 'texans', 'rams', 'chiefs', 'eagles', 'cowboys', 'packers',
+        'bills', 'dolphins', 'jets', 'ravens', 'steelers', 'bengals', 'browns',
+        'titans', 'colts', 'jaguars', 'broncos', 'raiders', 'chargers', 'seahawks',
+        '49ers', 'cardinals', 'falcons', 'panthers', 'saints', 'buccaneers',
+        'bears', 'lions', 'vikings', 'commanders', 'giants',
+        'lakers', 'celtics', 'warriors', 'heat', 'bulls', 'knicks', 'nets',
+        'clippers', 'suns', 'mavericks', 'bucks', 'sixers', '76ers', 'raptors',
+        'nuggets', 'grizzlies', 'pelicans', 'spurs', 'rockets', 'timberwolves',
+        'thunder', 'blazers', 'jazz', 'kings', 'magic', 'pistons', 'pacers',
+        'hornets', 'hawks', 'cavaliers', 'wizards',
+        'fútbol', 'futbol', ' fc', 'cf ', 'ac milan', 'inter milan', 'as roma',
+        'arsenal', 'chelsea', 'liverpool', 'manchester', 'tottenham',
+        'real madrid', 'barcelona', 'atletico', 'real sociedad', 'sevilla',
+        'juventus', 'napoli', 'lazio', 'fiorentina', 'lecce',
+        'bayern', 'borussia', 'leverkusen', 'leipzig',
+        'psg', 'marseille', 'lyon', 'olympique', 'stade', 'brestois',
+        'ajax', 'psv', 'feyenoord', 'benfica', 'porto', 'sporting',
+        'la liga', 'premier league', 'serie a', 'bundesliga', 'ligue 1',
+        'eredivisie', 'primeira liga', 'uefa', 'fifa',
+        'pachuca', 'américa', 'toluca', 'tigres', 'monterrey', 'cruz azul',
+        'call of duty', 'league of legends', 'counter-strike', 'cs2', 'csgo',
+        'dota', 'valorant', 'overwatch', 'fortnite', 'pubg', 'apex legends',
+        'rainbow six', 'rocket league', 'halo', 'starcraft', 'lol:', 'lol ',
+        'natus vincere', 'navi', 'faze', 'g2', 'team liquid', 'fnatic',
+        'cloud9', 'tsm', '100 thieves', 'sentinels', 'optic', 'karmine', 'movistar', 'koi',
+        'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol',
+        'crypto', 'doge', 'dogecoin', 'xrp', 'ripple', 'cardano', 'ada',
+        'polygon', 'matic', 'avalanche', 'avax', 'chainlink', 'link',
+        'litecoin', 'ltc', 'polkadot', 'dot', 'uniswap', 'uni',
+        'shiba', 'pepe', 'memecoin', 'altcoin', 'defi',
+        'coinbase', 'binance', 'kraken', 'ftx',
+        'up or down', 'price of', 'dip to', 'rise to', 'hit $',
+      ];
+
+      // Enrich trades with market metadata from Redis
+      const activities: RecentTradeActivity[] = [];
+
+      for (const row of result.rows) {
+        // Get condition ID from Redis
+        const conditionId = await this.redis.get(RedisKeys.tokenToCondition(row.token_id));
+        if (!conditionId) continue;
+
+        // Get market metadata
+        const metadataJson = await this.redis.get(RedisKeys.marketMetadata(conditionId));
+        if (!metadataJson) continue;
+        const metadata = JSON.parse(metadataJson);
+
+        // Apply exclusion filter based on question
+        // EXCEPTION: Allow ANY category for huge trades (>$50k)
+        const question = metadata.question || '';
+        const questionLower = question.toLowerCase();
+        const isHugeTrade = row.notional >= HUGE_TRADE_THRESHOLD;
+        if (!isHugeTrade && exclusions.some(exc => questionLower.includes(exc))) continue;
+
+        // Get wallet profile for join date
+        let joinedDate: string | null = null;
+        let joinedTimestamp: number | null = null;
+        try {
+          const walletProfile = await this.walletProfileService.getProfile(row.taker_address);
+          joinedDate = walletProfile.joinedDate;
+          joinedTimestamp = walletProfile.joinedTimestamp;
+        } catch {
+          // Ignore wallet profile errors
+        }
+
+        // Determine outcome from token (first token = Yes)
+        const outcomeNames = metadata.outcomes?.map((o: { name?: string }) => o.name) ?? ['Yes', 'No'];
+        const tokenIndex = metadata.outcomes?.findIndex((o: { tokenId?: string }) => o.tokenId === row.token_id) ?? 0;
+        const outcome = outcomeNames[tokenIndex] ?? 'Yes';
+
+        activities.push({
+          tradeId: row.trade_id,
+          timestamp: row.time.getTime(),
+          side: 'buy',
+          sizeUsd: row.notional,
+          quantity: row.size,
+          price: row.price,
+          outcome,
+          displaySide: `bought ${outcome}`,
+          conditionId,
+          question,
+          eventSlug: metadata.eventSlug ?? null,
+          slug: metadata.slug ?? null,
+          walletAddress: row.taker_address,
+          username: null,
+          displayName: null,
+          profileUrl: `https://polymarket.com/@${row.taker_address}`,
+          polygonscanUrl: `https://polygonscan.com/address/${row.taker_address}`,
+          joinedDate,
+          joinedTimestamp,
+          polymarketUrl: metadata.eventSlug
+            ? `https://polymarket.com/event/${metadata.eventSlug}${metadata.slug ? `/${metadata.slug}` : ''}`
+            : null,
+        });
+
+        if (activities.length >= limit) break;
+      }
+
+      // If we found trades in PostgreSQL, return them
+      if (activities.length > 0) {
+        logger.info({ count: activities.length, source: 'postgresql' }, 'Top trades fetched from database');
+        return activities;
+      }
+
+      // Fall back to API if no qualifying trades after filtering
+      logger.info('No qualifying trades in PostgreSQL after filtering, falling back to API');
+      return this.getTopTrades(limit);
+    } catch (error) {
+      logger.error({ error }, 'Failed to fetch top trades from PostgreSQL, falling back to API');
+      return this.getTopTrades(limit);
+    }
   }
 
   /**
@@ -772,7 +988,7 @@ export class AggregationService {
       'hornets', 'hawks', 'cavaliers', 'wizards',
 
       // Soccer/Football (international clubs & leagues)
-      'fútbol', 'futbol', ' fc', 'ac milan', 'inter milan', 'as roma',
+      'fútbol', 'futbol', ' fc', 'cf ', 'ac milan', 'inter milan', 'as roma',
       'arsenal', 'chelsea', 'liverpool', 'manchester', 'tottenham',
       'real madrid', 'barcelona', 'atletico', 'real sociedad', 'sevilla',
       'juventus', 'napoli', 'lazio', 'fiorentina', 'lecce',
@@ -781,6 +997,7 @@ export class AggregationService {
       'ajax', 'psv', 'feyenoord', 'benfica', 'porto', 'sporting',
       'la liga', 'premier league', 'serie a', 'bundesliga', 'ligue 1',
       'eredivisie', 'primeira liga', 'uefa', 'fifa',
+      'pachuca', 'américa', 'toluca', 'tigres', 'monterrey', 'cruz azul', // Mexican Liga MX
 
       // Esports games
       'call of duty', 'league of legends', 'counter-strike', 'cs2', 'csgo',
@@ -792,6 +1009,15 @@ export class AggregationService {
       'natus vincere', 'navi', 'faze', 'g2', 'team liquid', 'fnatic',
       'cloud9', 'tsm', '100 thieves', 'sentinels', 'optic',
       'karmine', 'movistar', 'koi',
+
+      // Cryptocurrency & Price Predictions
+      'bitcoin', 'btc', 'ethereum', 'eth', 'solana', 'sol',
+      'crypto', 'doge', 'dogecoin', 'xrp', 'ripple', 'cardano', 'ada',
+      'polygon', 'matic', 'avalanche', 'avax', 'chainlink', 'link',
+      'litecoin', 'ltc', 'polkadot', 'dot', 'uniswap', 'uni',
+      'shiba', 'pepe', 'memecoin', 'altcoin', 'defi',
+      'coinbase', 'binance', 'kraken', 'ftx',
+      'up or down', 'price of', 'dip to', 'rise to', 'hit $',
     ];
 
     const allMarkets = await this.getTrackedMarkets();
@@ -815,5 +1041,188 @@ export class AggregationService {
         return !isExcluded;
       })
       .slice(0, limit);
+  }
+
+  /**
+   * Get ALL markets closing soon, without any category exclusions.
+   * Used for the "Markets Closing Soon" feed that should show everything.
+   */
+  async getMarketsClosingSoonAll(options: {
+    maxMinutes?: number;
+    limit?: number;
+  }): Promise<MarketSummary[]> {
+    const { maxMinutes = 10080, limit = 20 } = options;
+
+    const allMarkets = await this.getTrackedMarkets();
+
+    return allMarkets
+      .filter(m => m.timeToCloseMinutes > 0 && m.timeToCloseMinutes <= maxMinutes)
+      .slice(0, limit);
+  }
+
+  /**
+   * Get recent BUY trades for a specific market using Data API.
+   */
+  private async getMarketBuys(conditionId: string, limit: number): Promise<RecentTradeActivity[]> {
+    try {
+      const trades = await this.dataApiClient.getMarketTrades(conditionId, {
+        side: 'BUY',
+        limit: limit * 2, // Fetch extra, filter by size
+        sortBy: 'TIMESTAMP',
+        sortDirection: 'DESC',
+      });
+
+      const activities: RecentTradeActivity[] = [];
+
+      for (const trade of trades) {
+        const notional = trade.size * trade.price;
+        if (notional < 100) continue; // Min $100 trades
+
+        const outcome = trade.outcome ?? (trade.outcomeIndex === 0 ? 'Yes' : 'No');
+
+        // Get wallet profile (cached)
+        const walletKey = trade.pseudonym || trade.proxyWallet;
+        let joinedDate: string | null = null;
+        let joinedTimestamp: number | null = null;
+
+        try {
+          const profile = await this.walletProfileService.getProfile(walletKey);
+          joinedDate = profile.joinedDate;
+          joinedTimestamp = profile.joinedTimestamp;
+        } catch { /* ignore */ }
+
+        activities.push({
+          tradeId: trade.transactionHash || `${trade.conditionId}-${trade.timestamp}`,
+          timestamp: trade.timestamp * 1000,
+          side: 'buy',
+          sizeUsd: notional,
+          quantity: trade.size,
+          price: trade.price,
+          outcome,
+          displaySide: `bought ${outcome}`,
+          conditionId: trade.conditionId,
+          question: trade.title ?? 'Unknown',
+          eventSlug: trade.eventSlug ?? null,
+          slug: trade.slug ?? null,
+          walletAddress: trade.proxyWallet,
+          username: trade.pseudonym ?? null,
+          displayName: trade.name ?? null,
+          profileUrl: trade.pseudonym
+            ? `https://polymarket.com/@${trade.pseudonym}`
+            : `https://polymarket.com/@${trade.proxyWallet}`,
+          polygonscanUrl: trade.transactionHash
+            ? `https://polygonscan.com/tx/${trade.transactionHash}`
+            : `https://polygonscan.com/address/${trade.proxyWallet}`,
+          joinedDate,
+          joinedTimestamp,
+          polymarketUrl: trade.eventSlug
+            ? `https://polymarket.com/event/${trade.eventSlug}${trade.slug ? `/${trade.slug}` : ''}`
+            : null,
+        });
+
+        if (activities.length >= limit) break;
+      }
+
+      return activities;
+    } catch (error) {
+      logger.error({ error, conditionId }, 'Failed to fetch market buys');
+      return [];
+    }
+  }
+
+  /**
+   * Get markets closing very soon grouped by event, with their recent BUY activity.
+   * Includes ALL market categories (sports, crypto, politics, etc.)
+   */
+  async getClosingMarketsWithActivity(limit: number = 3): Promise<{
+    eventTitle: string;
+    eventSlug: string | null;
+    polymarketEventUrl: string | null;
+    minutesUntilClose: number;
+    markets: {
+      market: MarketSummary;
+      recentBuys: RecentTradeActivity[];
+    }[];
+  }[]> {
+    // Get ALL closing markets (no category exclusions)
+    let closingMarkets: MarketSummary[] = [];
+
+    // Try progressively longer time windows
+    for (const maxMinutes of [60, 1440, 10080]) {
+      closingMarkets = await this.getMarketsClosingSoonAll({
+        maxMinutes,
+        limit: limit * 10, // Get extra for grouping
+      });
+      if (closingMarkets.length >= limit) break;
+    }
+
+    // Sort by time to close
+    closingMarkets.sort((a, b) => a.timeToCloseMinutes - b.timeToCloseMinutes);
+
+    // Group by event (eventSlug or conditionId as fallback)
+    const eventGroups = new Map<string, {
+      eventTitle: string;
+      eventSlug: string | null;
+      markets: MarketSummary[];
+    }>();
+
+    for (const market of closingMarkets) {
+      const eventKey = market.eventSlug || market.conditionId;
+
+      if (!eventGroups.has(eventKey)) {
+        // Extract event title from question (before first ":")
+        const eventTitle = market.question.includes(':')
+          ? market.question.split(':')[0].trim()
+          : market.question;
+        eventGroups.set(eventKey, {
+          eventTitle,
+          eventSlug: market.eventSlug,
+          markets: [],
+        });
+      }
+      eventGroups.get(eventKey)!.markets.push(market);
+    }
+
+    const results: {
+      eventTitle: string;
+      eventSlug: string | null;
+      polymarketEventUrl: string | null;
+      minutesUntilClose: number;
+      markets: { market: MarketSummary; recentBuys: RecentTradeActivity[] }[];
+    }[] = [];
+
+    // Process each event group (up to limit events)
+    let eventCount = 0;
+    for (const [, group] of eventGroups) {
+      if (eventCount >= limit) break;
+
+      const marketsWithBuys: { market: MarketSummary; recentBuys: RecentTradeActivity[] }[] = [];
+
+      // Fetch recent BUY trades for each market in this event
+      for (const market of group.markets) {
+        const recentBuys = await this.getMarketBuys(market.conditionId, 5);
+        marketsWithBuys.push({ market, recentBuys });
+      }
+
+      // Get earliest close time for the event
+      const earliestClose = Math.min(...group.markets.map(m => m.timeToCloseMinutes));
+
+      results.push({
+        eventTitle: group.eventTitle,
+        eventSlug: group.eventSlug,
+        polymarketEventUrl: group.eventSlug
+          ? `https://polymarket.com/event/${group.eventSlug}`
+          : null,
+        minutesUntilClose: earliestClose,
+        markets: marketsWithBuys,
+      });
+
+      eventCount++;
+    }
+
+    // Sort results by earliest close time
+    results.sort((a, b) => a.minutesUntilClose - b.minutesUntilClose);
+
+    return results;
   }
 }

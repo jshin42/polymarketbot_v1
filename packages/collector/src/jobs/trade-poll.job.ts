@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq';
-import { RedisKeys, transformDataApiTrade, createLogger, Redis } from '@polymarketbot/shared';
+import { Pool } from 'pg';
+import { RedisKeys, transformDataApiTrade, createLogger, Redis, Trade } from '@polymarketbot/shared';
 import { DataApiClient } from '../clients/data-api.client.js';
 import { WalletEnricherService } from '../services/wallet-enricher.service.js';
 import type { TradePollJobData } from '../workers/collector.worker.js';
@@ -15,6 +16,7 @@ export interface TradePollJobDeps {
   dataApiClient: DataApiClient;
   walletEnricherService: WalletEnricherService;
   featuresQueue: Queue;
+  pgPool: Pool | null;
 }
 
 export interface TradePollJobResult {
@@ -34,7 +36,7 @@ export async function processTradePollJob(
   deps: TradePollJobDeps
 ): Promise<TradePollJobResult> {
   const { tokenId, conditionId, since } = data;
-  const { redis, dataApiClient, walletEnricherService, featuresQueue } = deps;
+  const { redis, dataApiClient, walletEnricherService, featuresQueue, pgPool } = deps;
   const timestamp = Date.now();
 
   // Fetch recent trades from Data API (NO AUTH REQUIRED)
@@ -140,6 +142,14 @@ export async function processTradePollJob(
     60
   );
 
+  // Persist trades to PostgreSQL for historical queries
+  if (pgPool && newTrades.length > 0) {
+    const persistedCount = await persistTradesToPostgres(newTrades, pgPool);
+    if (persistedCount > 0) {
+      logger.debug({ persistedCount, total: newTrades.length }, 'Trades persisted to PostgreSQL');
+    }
+  }
+
   const result: TradePollJobResult = {
     tokenId,
     timestamp,
@@ -151,4 +161,51 @@ export async function processTradePollJob(
   logger.debug(result, 'Trade poll processed');
 
   return result;
+}
+
+// =============================================================================
+// PostgreSQL Persistence
+// =============================================================================
+
+/**
+ * Batch insert trades into PostgreSQL.
+ * Uses ON CONFLICT DO NOTHING to handle duplicates (trade_id + time is unique).
+ */
+async function persistTradesToPostgres(trades: Trade[], pgPool: Pool): Promise<number> {
+  if (trades.length === 0) return 0;
+
+  const values: unknown[] = [];
+  const placeholders: string[] = [];
+  let paramIndex = 1;
+
+  for (const trade of trades) {
+    placeholders.push(
+      `($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++})`
+    );
+    values.push(
+      new Date(trade.timestamp),    // time
+      trade.tradeId,                // trade_id
+      trade.tokenId,                // token_id
+      trade.makerAddress,           // maker_address
+      trade.takerAddress,           // taker_address
+      trade.side,                   // side
+      trade.price,                  // price
+      trade.size,                   // size
+      trade.feeRateBps ?? null      // fee_rate_bps
+    );
+  }
+
+  const query = `
+    INSERT INTO trades (time, trade_id, token_id, maker_address, taker_address, side, price, size, fee_rate_bps)
+    VALUES ${placeholders.join(', ')}
+    ON CONFLICT (trade_id, time) DO NOTHING
+  `;
+
+  try {
+    const result = await pgPool.query(query, values);
+    return result.rowCount ?? 0;
+  } catch (error) {
+    logger.error({ error, tradeCount: trades.length }, 'Failed to persist trades to PostgreSQL');
+    return 0;
+  }
 }

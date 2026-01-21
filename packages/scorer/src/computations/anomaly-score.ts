@@ -241,14 +241,30 @@ export async function identifyTriggeringTrades(
   const triggeringTrades: TriggeringTrade[] = [];
 
   for (const trade of topTrades) {
-    // Get wallet age from Redis
+    // Get wallet age from Redis - try first_seen, fallback to wallet profile
     const walletAddress = trade.takerAddress;
-    const firstSeenStr = await redis.get(RedisKeys.walletFirstSeen(walletAddress));
-
     let walletAgeDays: number | null = null;
+
+    // Try the walletFirstSeen key first (from Polygonscan enrichment)
+    const firstSeenStr = await redis.get(RedisKeys.walletFirstSeen(walletAddress));
     if (firstSeenStr) {
       const firstSeen = parseInt(firstSeenStr, 10);
       walletAgeDays = (now - firstSeen) / (1000 * 60 * 60 * 24);
+    }
+
+    // Fallback to wallet profile (from Polymarket scraping)
+    if (walletAgeDays === null) {
+      const profileStr = await redis.get(RedisKeys.walletProfile(walletAddress.toLowerCase()));
+      if (profileStr) {
+        try {
+          const profile = JSON.parse(profileStr);
+          if (profile.joinedTimestamp) {
+            walletAgeDays = (now - profile.joinedTimestamp) / (1000 * 60 * 60 * 24);
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
     }
 
     // Estimate percentile based on position relative to quantiles
@@ -334,14 +350,30 @@ export async function getHighestTrade(
     return null;
   }
 
-  // Get wallet age from Redis
+  // Get wallet age from Redis - try first_seen, fallback to wallet profile
   const walletAddress = highest.takerAddress;
-  const firstSeenStr = await redis.get(RedisKeys.walletFirstSeen(walletAddress));
-
   let walletAgeDays: number | null = null;
+
+  // Try the walletFirstSeen key first (from Polygonscan enrichment)
+  const firstSeenStr = await redis.get(RedisKeys.walletFirstSeen(walletAddress));
   if (firstSeenStr) {
     const firstSeen = parseInt(firstSeenStr, 10);
     walletAgeDays = (now - firstSeen) / (1000 * 60 * 60 * 24);
+  }
+
+  // Fallback to wallet profile (from Polymarket scraping)
+  if (walletAgeDays === null) {
+    const profileStr = await redis.get(RedisKeys.walletProfile(walletAddress.toLowerCase()));
+    if (profileStr) {
+      try {
+        const profile = JSON.parse(profileStr);
+        if (profile.joinedTimestamp) {
+          walletAgeDays = (now - profile.joinedTimestamp) / (1000 * 60 * 60 * 24);
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
   }
 
   // Calculate percentile based on rolling stats

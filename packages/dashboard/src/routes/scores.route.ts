@@ -186,7 +186,8 @@ export function registerScoresRoutes(
 
   /**
    * GET /api/activity/top
-   * Get top N largest trades from recent activity.
+   * Get top N largest BUY trades from last 24 hours.
+   * Uses PostgreSQL for true historical data if available, falls back to API.
    * Query params:
    *   - limit: max number of results (default 10)
    */
@@ -195,7 +196,8 @@ export function registerScoresRoutes(
     async (request, reply) => {
       try {
         const limit = parseInt(request.query.limit ?? '10', 10);
-        const topTrades = await aggregationService.getTopTrades(limit);
+        // Use PostgreSQL-backed method for true 24h history
+        const topTrades = await aggregationService.getTopTradesFromDB(limit);
 
         return reply.send({
           count: topTrades.length,
@@ -204,6 +206,30 @@ export function registerScoresRoutes(
       } catch (error) {
         logger.error({ error }, 'Failed to get top trades');
         return reply.status(500).send({ error: 'Failed to get top trades' });
+      }
+    }
+  );
+
+  /**
+   * GET /api/markets/closing
+   * Get the 3 markets closest to closing with their recent buy activity.
+   * Query params:
+   *   - limit: max number of markets (default 3)
+   */
+  app.get<{ Querystring: { limit?: string } }>(
+    '/api/markets/closing',
+    async (request, reply) => {
+      try {
+        const limit = parseInt(request.query.limit ?? '3', 10);
+        const closingMarkets = await aggregationService.getClosingMarketsWithActivity(limit);
+
+        return reply.send({
+          count: closingMarkets.length,
+          markets: closingMarkets,
+        });
+      } catch (error) {
+        logger.error({ error }, 'Failed to get closing markets');
+        return reply.status(500).send({ error: 'Failed to get closing markets' });
       }
     }
   );

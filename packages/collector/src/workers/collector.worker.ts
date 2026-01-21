@@ -1,4 +1,5 @@
 import { Worker, Queue, Job } from 'bullmq';
+import { Pool } from 'pg';
 import { RedisKeys, RedisTTL, createLogger, Redis } from '@polymarketbot/shared';
 import { GammaClient } from '../clients/gamma.client.js';
 import { ClobRestClient } from '../clients/clob-rest.client.js';
@@ -45,10 +46,11 @@ export interface CollectorWorkerDeps {
   dataApiClient: DataApiClient;
   walletEnricherService: WalletEnricherService;
   featuresQueue: Queue;
+  pgPool: Pool | null;
 }
 
 export async function createCollectorWorker(deps: CollectorWorkerDeps): Promise<Worker> {
-  const { redis, gammaClient, clobClient, dataApiClient, walletEnricherService, featuresQueue } = deps;
+  const { redis, gammaClient, clobClient, dataApiClient, walletEnricherService, featuresQueue, pgPool } = deps;
 
   const worker = new Worker<CollectorJobData>(
     RedisKeys.queues.normalize,
@@ -66,7 +68,7 @@ export async function createCollectorWorker(deps: CollectorWorkerDeps): Promise<
             return await processOrderbookSnapshotJob(data, { redis, clobClient, featuresQueue });
 
           case 'trade-poll':
-            return await processTradePollJob(data, { redis, dataApiClient, walletEnricherService, featuresQueue });
+            return await processTradePollJob(data, { redis, dataApiClient, walletEnricherService, featuresQueue, pgPool });
 
           default:
             logger.warn({ type }, 'Unknown job type');
